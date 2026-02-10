@@ -1,0 +1,20 @@
+# Terraform
+.terraform/
+# .terraform.lock.hcl はコミットする（プロバイダ版の再現性のため）
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform plan files (temporary)
+*.tfplan
+tfplan*
+
+# 機密を含む可能性があるため、必要に応じて .tfvars を無視する（共有用の example のみコミット）
+# *.tfvars
+# !*.tfvars.example

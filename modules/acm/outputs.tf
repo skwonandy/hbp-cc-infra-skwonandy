@@ -1,0 +1,1 @@
+# output "certificate_arn" { ... }
