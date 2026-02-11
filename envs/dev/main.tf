@@ -104,6 +104,7 @@ module "ecs" {
   alb_listener_arn             = module.alb.listener_arn
   ecr_api_repository_url       = module.cicd.ecr_api_url
   db_host                      = module.rds.db_instance_address
+  db_host_replications         = "[\"${module.rds.db_instance_address}\"]"
   db_name                      = "main"
   db_user                      = "postgres"
   db_password_plain            = var.db_password

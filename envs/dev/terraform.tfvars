@@ -17,3 +17,7 @@ tags = {
   Project     = "hbp-cc"
   CostCenter  = "dev"
 }
+
+# SES: 送信元メールアドレスを指定すると SES モジュールが作成され、ECS タスクに送信権限が付与される。
+# dev では SES サンドボックス利用を想定。指定したアドレスは AWS コンソールで検証済みにすること。
+ses_sender_email = "dev-noreply@example.com"
