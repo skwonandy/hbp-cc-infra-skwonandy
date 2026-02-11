@@ -103,6 +103,24 @@ resource "aws_iam_role_policy" "task_s3" {
   })
 }
 
+resource "aws_iam_role_policy" "task_ses" {
+  count = length(var.ses_identity_arns) > 0 ? 1 : 0
+
+  name = "ses-send"
+  role = aws_iam_role.task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ses:SendEmail", "ses:SendRawEmail"]
+        Resource = var.ses_identity_arns
+      }
+    ]
+  })
+}
+
 # --- ECS 用 SG（ALB からの container_port のみ許可）---
 resource "aws_security_group" "ecs" {
   name_prefix = "${local.name_prefix}-ecs-"

@@ -115,6 +115,7 @@ module "ecs" {
   service_url_ssm_arn          = aws_ssm_parameter.service_url.arn
   app_env                      = "dev"
   sentry_dsn                   = ""
+  ses_identity_arns            = try(module.ses[0].identity_arns, [])
   api_extra_environment        = [
     { name = "HBP_SESSION_JWT_KEY", value = var.hbp_session_jwt_key },
     { name = "HBP_USER_INVITATION_JWT_KEY", value = var.hbp_user_invitation_jwt_key },
@@ -140,6 +141,18 @@ module "cloudfront" {
   frontend_bucket_arn                 = module.s3.frontend_bucket_arn
   frontend_bucket_regional_domain_name = module.s3.frontend_bucket_regional_domain_name
   tags                                = var.tags
+}
+
+# SES: domain または ses_sender_email のいずれかを指定した場合のみ作成
+module "ses" {
+  source = "../../modules/ses"
+  count  = var.ses_domain != "" || var.ses_sender_email != "" ? 1 : 0
+
+  env          = var.env
+  project_name = var.project_name
+  domain       = var.ses_domain
+  sender_email = var.ses_sender_email
+  tags         = var.tags
 }
 
 # フロントエンドビルド時に API のベース URL を参照するため（GitHub Actions が SSM から取得）

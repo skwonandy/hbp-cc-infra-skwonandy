@@ -149,3 +149,15 @@ variable "hbp_jwt_issuer" {
   type    = string
   default = "hbp-cc-dev"
 }
+
+# SES（両方空の場合は SES モジュールは作成しない）
+variable "ses_domain" {
+  type        = string
+  default     = ""
+  description = "SES 送信用ドメイン（検証済み）。空の場合は sender_email のみ使用可"
+}
+variable "ses_sender_email" {
+  type        = string
+  default     = ""
+  description = "SES で検証する送信元メールアドレス（dev/sandbox ではこの 1 件を検証して送信に使用）"
+}

@@ -120,3 +120,10 @@ variable "health_check_grace_period_seconds" {
   default     = 120
   description = "Grace period before ALB health checks can mark the task unhealthy (app startup time)"
 }
+
+# SES: 指定時のみタスクロールに ses:SendEmail / ses:SendRawEmail を付与
+variable "ses_identity_arns" {
+  type        = list(string)
+  default     = []
+  description = "SES identity ARNs the task is allowed to send from (from module.ses.identity_arns)"
+}
