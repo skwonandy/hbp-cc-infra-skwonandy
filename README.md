@@ -33,6 +33,104 @@ terraform apply
 
 アプリリポジトリのデプロイ workflow は、**GitHub Environment 名が Terraform の env（dev / stg / prod）と一致している必要があります**。リポジトリの Settings → Environments で **dev** / **stg** / **prod** の 3 つを作成し、各 Environment の Secrets に **`AWS_DEPLOY_ROLE_ARN`** のみ登録してください。CloudFront のキャッシュ無効化用の Distribution ID は、workflow 内で環境名（`hbp-cc-<env> frontend` の Comment）から自動取得するため、別途登録は不要です。ブランチ名は development / staging / production のままでよく、workflow 内で dev / stg / prod にマッピングされます。
 
+## 初回デプロイまでのフロー
+
+フロント・バックエンドを初めてデプロイするときは、以下の順序で行う。GitHub Secrets（`AWS_DEPLOY_ROLE_ARN`）は Terraform apply 後の output が必要。フロントのデプロイは SSM の `api-base-url`（Terraform 作成）に依存する。
+
+```mermaid
+flowchart LR
+  subgraph prep [前提]
+    A[AWS Terraform 準備]
+    B[RDS パスワード SSM 登録]
+  end
+  subgraph infra [インフラ]
+    C[Terraform apply]
+  end
+  subgraph gh [GitHub]
+    D[Environment dev stg prod]
+    E[Secrets AWS_DEPLOY_ROLE_ARN]
+  end
+  subgraph deploy [デプロイ]
+    F[初回バックエンド]
+    G[初回フロント]
+  end
+  subgraph verify [確認]
+    H[API フロント動作確認]
+  end
+  A --> C
+  B --> C
+  C --> D
+  C --> E
+  D --> F
+  E --> F
+  C --> G
+  E --> G
+  F --> H
+  G --> H
+```
+
+### 前提条件
+
+- Terraform 1.14.4、AWS CLI 設定済み（上記「前提」参照）
+- 対象環境の RDS マスターパスワードを SSM に登録済み（[RDS マスターパスワード（SSM のみ）](#rds-マスターパスワードssm-のみ) 参照）
+- （任意）Terraform 実行用ロールを assume する場合は [assume の手順](#terraform-実行用ロール案-a-assume-運用) 参照
+
+### Step 1: インフラの構築（Terraform）
+
+対象環境（例: dev）で次を実行する。
+
+```bash
+cd envs/dev
+terraform init
+terraform plan
+terraform apply
+```
+
+**作成される主なリソース**: VPC, RDS, ElastiCache, S3（アプリ用・フロント用）, ECR（API 用）, ALB, ECS クラスタ・タスク定義・サービス（CodeDeploy ブルー/グリーン）, CloudFront, SSM パラメータ（`/hbp-cc/<env>/api-base-url`, `/hbp-cc/<env>/service-url`）, GitHub Actions 用 IAM ロール（OIDC）。
+
+**重要**: apply 後にデプロイ用ロール ARN を取得し、Step 2 で GitHub に登録する。
+
+```bash
+cd envs/dev && terraform output github_actions_deploy_role_arn
+```
+
+### Step 2: GitHub の設定
+
+- **Environments**: アプリリポジトリの Settings → Environments で **dev** / **stg** / **prod** の 3 つを作成する。名前は必ず dev / stg / prod（OIDC の `environment:` と一致させる）。
+- **Secrets**: 各 Environment の Secrets に **`AWS_DEPLOY_ROLE_ARN`** を 1 つだけ登録する。値は Step 1 の `terraform output github_actions_deploy_role_arn` の出力。
+- CloudFront の Distribution ID は workflow 内で Comment（`hbp-cc-<env> frontend`）から自動取得するため、Secrets には登録不要。
+
+### Step 3: 初回バックエンドデプロイ
+
+**トリガー**
+
+- **push**: `development` / `staging` / `production` のいずれかへ `server/**` の変更を push する。
+- **手動**: Actions → "Deploy Backend" → "Run workflow" で対象（development / staging / production）を選択する。「Use workflow from」のブランチは選択した環境と一致させること（workflow の Validate でチェックされる）。
+
+**処理の流れ**: ECR ログイン → API イメージをビルド（`server/fastapi/Dockerfile`）→ ECR へ push（`hbp-cc-<env>-api`）→ **ECS ワンショットタスクで `alembic upgrade head` を実行（マイグレーション）** → 既存 ECS タスク定義を取得して新イメージで新リビジョン登録 → CodeDeploy でブルー/グリーンデプロイ。
+
+### Step 4: 初回フロントエンドデプロイ
+
+**トリガー**
+
+- **push**: `development` / `staging` / `production` のいずれかへ `front/**` の変更を push する。
+- **手動**: Actions → "Deploy Frontend" → "Run workflow" で対象を選択する。ブランチと環境の一致が必要。
+
+**処理の流れ**: `AWS_DEPLOY_ROLE_ARN` で OIDC 認証 → Node セットアップ・`npm ci` → SSM から `/hbp-cc/<env>/api-base-url` を取得し `front/scripts/set-api-base-url.js` で環境ファイル（`environment.dev.ts` 等）の `apiBaseUrl` を上書き → `build:dev` / `build:stg` / `build:prod` でビルド → `front/dist/front/browser/` を S3 `hbp-cc-<env>-frontend` に sync → CloudFront キャッシュ無効化（Comment `hbp-cc-<env> frontend` で Distribution を検索）。
+
+**依存**: Terraform が SSM に `api-base-url` を登録しているため、Step 1 が完了していることが前提。
+
+### Step 5: 動作確認
+
+- **API**: `terraform output api_url` で表示される ALB の URL（例: `http://.../api`）にヘルスチェックやログイン等でアクセスする。
+- **フロント**: `terraform output frontend_url` で表示される CloudFront URL にブラウザでアクセスする。
+- 問題がある場合は ECS のタスク状態や CloudWatch Logs（`/ecs/hbp-cc-<env>-api`）を確認する。
+
+### 補足
+
+- **ブランチと env の対応**: development → dev, staging → stg, production → prod（workflow 内でマッピング）。
+- **2 回目以降**: 上記 Step 3 / Step 4 のトリガー（push または手動）で同じ workflow を実行するだけ。
+
 ## Terraform 実行に必要な IAM 権限
 
 `terraform apply` を実行する IAM ユーザー／ロールには、本リポジトリが作成・参照するリソースに対応した権限が必要です。
