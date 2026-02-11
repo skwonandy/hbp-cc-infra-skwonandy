@@ -45,9 +45,14 @@ variable "create_oidc_provider" {
 
 # RDS (postgres); do not set db_password in tfvars — use TF_VAR_db_password or -var
 variable "db_password" {
-  description = "RDS master password (pass via TF_VAR_db_password or -var)"
+  description = "RDS master password (pass via TF_VAR_db_password or -var). Must be 8–128 chars; avoid \" ` \\ @ / and space to prevent Invalid master password."
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(var.db_password) >= 8 && length(var.db_password) <= 128
+    error_message = "db_password must be 8-128 characters (RDS). Do not use: double-quote, backslash, @, /, or space."
+  }
 }
 
 variable "rds_instance_class" {

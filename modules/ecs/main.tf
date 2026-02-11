@@ -43,9 +43,9 @@ resource "aws_iam_role_policy_attachment" "task_execution_ecr" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# SERVICE_URL を SSM から取得する場合のタスク実行ロール権限
+# SERVICE_URL を SSM から取得する場合のタスク実行ロール権限（count は plan 時確定の use_service_url_ssm で制御）
 resource "aws_iam_role_policy" "task_execution_ssm_service_url" {
-  count = var.service_url_ssm_arn != "" ? 1 : 0
+  count = var.use_service_url_ssm ? 1 : 0
 
   name   = "ssm-service-url"
   role   = aws_iam_role.task_execution.id
@@ -104,7 +104,7 @@ resource "aws_iam_role_policy" "task_s3" {
 }
 
 resource "aws_iam_role_policy" "task_ses" {
-  count = length(var.ses_identity_arns) > 0 ? 1 : 0
+  count = var.attach_ses_policy ? 1 : 0
 
   name = "ses-send"
   role = aws_iam_role.task.id
@@ -170,7 +170,7 @@ locals {
       { name = "AWS_REGION", value = var.aws_region },
       { name = "ENV", value = var.app_env },
     ],
-    var.service_url_ssm_arn == "" ? [{ name = "SERVICE_URL", value = var.service_url }] : [],
+    var.use_service_url_ssm ? [] : [{ name = "SERVICE_URL", value = var.service_url }],
     [
       { name = "DB_POOL_SIZE", value = tostring(var.db_pool_size) },
       { name = "DB_HOST_REPLICATIONS", value = var.db_host_replications },
@@ -181,7 +181,7 @@ locals {
   )
   api_secrets = concat(
     var.db_password_secret_arn != "" ? [{ name = "DB_PASSWORD", valueFrom = var.db_password_secret_arn }] : [],
-    var.service_url_ssm_arn != "" ? [{ name = "SERVICE_URL", valueFrom = var.service_url_ssm_arn }] : []
+    var.use_service_url_ssm ? [{ name = "SERVICE_URL", valueFrom = var.service_url_ssm_arn }] : []
   )
 }
 

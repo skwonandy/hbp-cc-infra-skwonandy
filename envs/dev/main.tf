@@ -113,9 +113,11 @@ module "ecs" {
   s3_app_bucket                = module.s3.app_bucket_id
   aws_region                   = var.aws_region
   service_url                  = module.cloudfront.cloudfront_url
+  use_service_url_ssm          = true
   service_url_ssm_arn          = aws_ssm_parameter.service_url.arn
   app_env                      = "dev"
   sentry_dsn                   = ""
+  attach_ses_policy            = true
   ses_identity_arns            = try(module.ses[0].identity_arns, [])
   api_extra_environment        = [
     { name = "HBP_SESSION_JWT_KEY", value = var.hbp_session_jwt_key },

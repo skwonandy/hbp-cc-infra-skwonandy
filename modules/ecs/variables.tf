@@ -51,10 +51,15 @@ variable "service_url" {
   type        = string
   description = "フロントエンドの URL (SERVICE_URL: CORS ALLOWED_ORIGINS・メールリンクのベース)。service_url_ssm_arn 未指定時のみ environment に使用"
 }
+variable "use_service_url_ssm" {
+  type        = bool
+  default     = false
+  description = "true のとき SSM から SERVICE_URL を取得（count は plan 時に確定するためこの bool で制御）。true のときは service_url_ssm_arn を指定すること"
+}
 variable "service_url_ssm_arn" {
   type        = string
   default     = ""
-  description = "SSM パラメータ ARN。指定時は SERVICE_URL を AWS (SSM) から取得して環境変数にセット（secrets で注入）"
+  description = "SSM パラメータ ARN。use_service_url_ssm が true のとき必須。SERVICE_URL を secrets で注入"
 }
 variable "app_env" {
   type        = string
@@ -121,9 +126,14 @@ variable "health_check_grace_period_seconds" {
   description = "Grace period before ALB health checks can mark the task unhealthy (app startup time)"
 }
 
-# SES: 指定時のみタスクロールに ses:SendEmail / ses:SendRawEmail を付与
+# SES: 指定時のみタスクロールに ses:SendEmail / ses:SendRawEmail を付与（count は plan 時に確定するため attach_ses_policy で制御）
+variable "attach_ses_policy" {
+  type        = bool
+  default     = false
+  description = "true のときタスクロールに SES 送信ポリシーを付与。true のときは ses_identity_arns を指定すること"
+}
 variable "ses_identity_arns" {
   type        = list(string)
   default     = []
-  description = "SES identity ARNs the task is allowed to send from (from module.ses.identity_arns)"
+  description = "SES identity ARNs the task is allowed to send from (from module.ses.identity_arns). attach_ses_policy が true のとき使用"
 }
