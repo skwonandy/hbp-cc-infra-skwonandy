@@ -18,6 +18,9 @@ provider "aws" {
   }
 }
 
+# Terraform 実行時の認証情報確認用（plan/apply 時にどの identity か分かる）
+data "aws_caller_identity" "current" {}
+
 module "vpc" {
   source = "../../modules/vpc"
 
@@ -164,6 +167,7 @@ resource "aws_ssm_parameter" "api_base_url" {
   description = "API base URL for frontend build (e.g. ALB URL + /api)"
   type        = "String"
   value       = "http://${module.alb.alb_dns_name}/api"
+  overwrite   = true
 }
 
 # バックエンドの SERVICE_URL（CORS / ALLOWED_ORIGINS・メールリンクのベース）。フロントエンドの URL。ECS タスクは SSM から取得して環境変数にセット
@@ -172,6 +176,7 @@ resource "aws_ssm_parameter" "service_url" {
   description = "Frontend URL (SERVICE_URL, ALLOWED_ORIGINS, mail links)"
   type        = "String"
   value       = module.cloudfront.cloudfront_url
+  overwrite   = true
 }
 
 # dev では Batch は不要（ジョブ実行は行わない）

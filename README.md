@@ -42,6 +42,24 @@ AccessDeniedException: User: arn:aws:iam::ACCOUNT:user/USERNAME is not authorize
 
 `YOUR_ACCOUNT_ID` を実際の AWS アカウント ID に、リージョンが ap-northeast-1 でない場合は `ap-northeast-1` を該当リージョンに置き換えてください。他の環境（stg/prod）でも SSM を使う場合は、同様に `parameter/hbp-cc/stg/*` などを追加してください。
 
+**AWS CLI で直接アタッチする場合**
+
+ポリシーを JSON で作成してから、指定ユーザーにアタッチする例です（`YOUR_ACCOUNT_ID` と `ap-northeast-1` を必要に応じて置き換え、`janscore` をアタッチ先の IAM ユーザー名に変更してください）。
+
+```bash
+# 1. ポリシーを作成（上記 JSON を policy.json として保存してから）
+aws iam create-policy \
+  --policy-name hbp-cc-dev-terraform-runner-ssm \
+  --policy-document file://policy.json
+
+# 2. 作成したポリシーを IAM ユーザーにアタッチ
+aws iam attach-user-policy \
+  --user-name janscore \
+  --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/hbp-cc-dev-terraform-runner-ssm
+```
+
+既に同名ポリシーが存在する場合は、上記の 2 だけを実行すればよいです。
+
 ### RDS マスターパスワード
 
 RDS のマスターパスワード（`db_password` / `TF_VAR_db_password`）は次の条件を満たしてください。満たさないと `Invalid master password` になります。

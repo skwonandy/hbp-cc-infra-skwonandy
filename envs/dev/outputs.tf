@@ -1,3 +1,8 @@
+output "terraform_caller_arn" {
+  description = "Terraform 実行時の IAM identity（SSM 403 時はこれが janscore か確認）"
+  value       = data.aws_caller_identity.current.arn
+}
+
 output "vpc_id" {
   description = "VPC ID"
   value       = module.vpc.vpc_id
