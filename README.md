@@ -77,3 +77,22 @@ aws ssm put-parameter --name /hbp-cc/dev/rds-master-password --type SecureString
 - **使用不可文字**: 次の文字は含めないこと — `"`（ダブルクォート）, `` ` ``（バッククォート）, `\`, `@`, `/`, 半角スペース
 
 英大文字・小文字・数字・記号（上記以外）を組み合わせた強めのパスワードを推奨します。
+
+### SES 送信元メールアドレス
+
+SES の送信元として使うメールアドレスは **環境ごとの tfvars** で指定します。
+
+- **dev**: [envs/dev/terraform.tfvars](envs/dev/terraform.tfvars) の `ses_sender_email`（例: `dev-noreply@example.com`）
+- **変数**: 各環境の `variables.tf` の `ses_sender_email` / `ses_domain`。どちらかが空でないときのみ SES モジュールが有効になる。
+
+dev は SES サンドボックスのため、送信できるのは **検証済みの送信元アドレス** のみ。アドレスを変えた場合は、AWS コンソールの SES でそのアドレスを検証すること。
+
+**SES だけデプロイする場合**（他リソースを立てずに SES のドメイン／メール検証だけ先行して行うとき）:
+
+```bash
+cd envs/dev
+terraform plan -target=module.ses[0]
+terraform apply -target=module.ses[0]
+```
+
+前提として、`/hbp-cc/dev/rds-master-password` が SSM に登録済みであること（plan 時にデータソースが参照するため）。SES モジュールは他モジュールに依存しないため、この target だけで作成できる。
