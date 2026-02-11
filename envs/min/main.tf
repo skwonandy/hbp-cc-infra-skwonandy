@@ -111,7 +111,8 @@ module "ecs" {
   redis_host                  = module.elasticache.redis_host
   s3_app_bucket               = module.s3.app_bucket_id
   aws_region                  = var.aws_region
-  service_url                 = "http://${module.alb.alb_dns_name}"
+  service_url                 = module.cloudfront.cloudfront_url
+  service_url_ssm_arn         = aws_ssm_parameter.service_url.arn
   app_env                     = "dev" # アプリの Env に min がないため dev で起動
   sentry_dsn                  = ""    # Sentry 無効
   api_extra_environment       = [
@@ -147,6 +148,14 @@ resource "aws_ssm_parameter" "api_base_url" {
   description = "API base URL for frontend build (e.g. ALB URL + /api)"
   type        = "String"
   value       = "http://${module.alb.alb_dns_name}/api"
+}
+
+# バックエンドの SERVICE_URL（CORS / ALLOWED_ORIGINS・メールリンクのベース）。フロントエンドの URL。ECS タスクは SSM から取得して環境変数にセット
+resource "aws_ssm_parameter" "service_url" {
+  name        = "/hbp-cc/${var.env}/service-url"
+  description = "Frontend URL (SERVICE_URL, ALLOWED_ORIGINS, mail links)"
+  type        = "String"
+  value       = module.cloudfront.cloudfront_url
 }
 
 # min では現在のコードが最低限動けばよいため Batch は不要（ジョブ実行は行わない）

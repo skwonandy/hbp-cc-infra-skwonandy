@@ -49,7 +49,12 @@ variable "aws_region" { type = string }
 # FastAPI 起動に必須（未設定だと KeyError / 起動失敗）
 variable "service_url" {
   type        = string
-  description = "API の公開 URL (SERVICE_URL, ALLOWED_ORIGINS 用)"
+  description = "フロントエンドの URL (SERVICE_URL: CORS ALLOWED_ORIGINS・メールリンクのベース)。service_url_ssm_arn 未指定時のみ environment に使用"
+}
+variable "service_url_ssm_arn" {
+  type        = string
+  default     = ""
+  description = "SSM パラメータ ARN。指定時は SERVICE_URL を AWS (SSM) から取得して環境変数にセット（secrets で注入）"
 }
 variable "app_env" {
   type        = string

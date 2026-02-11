@@ -43,6 +43,24 @@ resource "aws_iam_role_policy_attachment" "task_execution_ecr" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# SERVICE_URL を SSM から取得する場合のタスク実行ロール権限
+resource "aws_iam_role_policy" "task_execution_ssm_service_url" {
+  count = var.service_url_ssm_arn != "" ? 1 : 0
+
+  name   = "ssm-service-url"
+  role   = aws_iam_role.task_execution.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameters"]
+        Resource = [var.service_url_ssm_arn]
+      }
+    ]
+  })
+}
+
 # --- タスクロール（S3 アプリバケット等）---
 resource "aws_iam_role" "task" {
   name = "${local.name_prefix}-ecs-task"
@@ -133,7 +151,9 @@ locals {
       { name = "AWS_S3_TEMPORARY_BUCKET_NAME", value = var.s3_app_bucket },
       { name = "AWS_REGION", value = var.aws_region },
       { name = "ENV", value = var.app_env },
-      { name = "SERVICE_URL", value = var.service_url },
+    ],
+    var.service_url_ssm_arn == "" ? [{ name = "SERVICE_URL", value = var.service_url }] : [],
+    [
       { name = "DB_POOL_SIZE", value = tostring(var.db_pool_size) },
       { name = "DB_HOST_REPLICATIONS", value = var.db_host_replications },
       { name = "SENTRY_DSN", value = var.sentry_dsn },
@@ -141,7 +161,10 @@ locals {
     var.db_password_secret_arn == "" && var.db_password_plain != null ? [{ name = "DB_PASSWORD", value = var.db_password_plain }] : [],
     var.api_extra_environment
   )
-  api_secrets = var.db_password_secret_arn != "" ? [{ name = "DB_PASSWORD", valueFrom = var.db_password_secret_arn }] : []
+  api_secrets = concat(
+    var.db_password_secret_arn != "" ? [{ name = "DB_PASSWORD", valueFrom = var.db_password_secret_arn }] : [],
+    var.service_url_ssm_arn != "" ? [{ name = "SERVICE_URL", valueFrom = var.service_url_ssm_arn }] : []
+  )
 }
 
 # --- タスク定義（API）---
