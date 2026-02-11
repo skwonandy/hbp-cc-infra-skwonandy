@@ -1,6 +1,12 @@
 variable "env" { type = string }
-variable "project_name" { type = string; default = "hbp-cc" }
-variable "tags" { type = map(string); default = {} }
+variable "project_name" {
+  type    = string
+  default = "hbp-cc"
+}
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
 
 # 少なくともどちらか一方を指定すること。ドメインは本番向け、sender_email は dev/sandbox 向け
 variable "domain" {

@@ -13,7 +13,7 @@ isProject: false
 
 ### 1. Terraform のインストール
 
-- **必要バージョン**: 本リポジトリは `required_version = ">= 1.5.0"` を想定。`~> 5.0` の AWS プロバイダを使う。
+- **必要バージョン**: 本リポジトリは `required_version = "= 1.14.4"` を想定。`~> 5.0` の AWS プロバイダを使う。
 - **インストール例**:
   - **Linux（WSL2 含む）**: [HashiCorp 公式](https://developer.hashicorp.com/terraform/install) の手順に従う。または `tfenv` でバージョン管理する場合:
     ```bash
@@ -21,15 +21,15 @@ isProject: false
     git clone https://github.com/tfutils/tfenv.git ~/.tfenv
     echo 'export PATH="$HOME/.tfenv/bin:$PATH"' >> ~/.bashrc
     source ~/.bashrc
-    tfenv install 1.5.0
-    tfenv use 1.5.0
+    tfenv install 1.14.4
+    tfenv use 1.14.4
     ```
   - **macOS**: `brew install terraform` または上記 tfenv。
   - **Windows**: [公式インストーラ](https://developer.hashicorp.com/terraform/downloads) または Chocolatey `choco install terraform`。
 - **確認**:
   ```bash
   terraform version
-  # Terraform v1.5.0 以上であること
+  # Terraform v1.14.4 であること
   ```
 
 ### 2. AWS CLI のインストール（推奨）
@@ -86,7 +86,7 @@ Terraform の AWS プロバイダは認証情報を必要とする。`aws config
 
 | 項目 | 確認コマンド |
 |------|----------------|
-| Terraform >= 1.5.0 | `terraform version` |
+| Terraform 1.14.4 | `terraform version` |
 | AWS 認証が効いている | `aws sts get-caller-identity` |
 | 作業ディレクトリ | `envs/dev` または `envs/stg` 等で `terraform init` 済み |
 | ロックファイル | `envs/dev/.terraform.lock.hcl` をコミット推奨 |
@@ -338,7 +338,7 @@ hbp-cc/infra/
 
 - **モジュールのベストプラクティス**: 各モジュールは **単一の責務** にし、**variables（入力）と outputs（出力）の契約** を明確にする。HashiCorp の [Standard Module Structure](https://developer.hashicorp.com/terraform/language/modules/develop/structure) に従い、各モジュールに **README.md** を置き、用途・必須/任意の variables・outputs を記載する。
 - ルートの `versions.tf` / `backend.tf` は共通のひな形とし、実際の `plan` / `apply` は `envs/<env>/` で行う想定（`-chdir=envs/dev` / `envs/stg` など）
-- **versions.tf のベストプラクティス**: `terraform` ブロックで `**required_version**`（例: `>= 1.5.0`）を指定し、`**required_providers**` でプロバイダのバージョン制約（例: `aws = "~> 5.0"`）を明示する。`**.terraform.lock.hcl` は .gitignore に含めずリポジトリにコミット**し、CI とローカルで同じプロバイダ版が使われるようにする。
+- **versions.tf のベストプラクティス**: `terraform` ブロックで `**required_version**`（例: `= 1.14.4`）を指定し、`**required_providers**` でプロバイダのバージョン制約（例: `aws = "~> 5.0"`）を明示する。`**.terraform.lock.hcl` は .gitignore に含めずリポジトリにコミット**し、CI とローカルで同じプロバイダ版が使われるようにする。
 - 環境ごとに backend の S3 バケット・キーを分け、state の混在を防ぐ
 - 環境間の違いは **サイズのみ**。各環境の `terraform.tfvars` で `instance_class`・`task_cpu`・`task_memory`・`task_count`・`storage_gb`・`az_count` 等を指定する（後述「環境ごとの違い（サイズのみ）」参照）
 - **コスト・タグ付け**: 全リソースに `Environment`・`Project`・`CostCenter` 等のタグを Terraform で付与し、AWS コスト配分で環境別に集計できるようにする。各モジュールで共通の `tags` 変数を受け取り、`envs/<env>/terraform.tfvars` で設定する。
@@ -463,7 +463,7 @@ dev 環境の Terraform 構築から、バックエンド（ECR push）・フロ
 
 ## 実装の進め方（推奨順）
 
-1. **infra の骨組み**: `infra/` 作成、`versions.tf`（**required_version** と **required_providers** のバージョン制約を記載。例: `required_version = ">= 1.5.0"`、`aws = "~> 5.0"`）、`envs/dev` と `envs/stg` の `backend.tf`（S3 + DynamoDB）、`.gitignore`（**.terraform.lock.hcl は除外せずコミット**）。`terraform init` 後に生成される `.terraform.lock.hcl` をリポジトリに含める
+1. **infra の骨組み**: `infra/` 作成、`versions.tf`（**required_version** と **required_providers** のバージョン制約を記載。例: `required_version = "= 1.14.4"`、`aws = "~> 5.0"`）、`envs/dev` と `envs/stg` の `backend.tf`（S3 + DynamoDB）、`.gitignore`（**.terraform.lock.hcl は除外せずコミット**）。`terraform init` 後に生成される `.terraform.lock.hcl` をリポジトリに含める
 2. **VPC**: `modules/vpc` を作成（プライベート/パブリックサブネット、SG 最小権限。本番向けに VPC エンドポイント用のサブネット/ルートも検討）し、`envs/dev` または `envs/stg` の `main.tf` から呼び出して `plan` / `apply` で検証
 3. **RDS + ElastiCache**: `modules/rds`（暗号化・マルチAZ・バックアップ有効）/ `modules/elasticache`（暗号化有効）を追加し、VPC 出力を参照して作成
 4. **ECS + ALB**: `modules/ecs` / `modules/alb` で FastAPI と arq worker 用サービスを定義。**バックエンド API 用 ECS は CodeDeploy 連携のブルー/グリーン**とし、ALB に blue/green 用 2 ターゲットグループを用意して連携。**想定外アクセス対応**のため、FastAPI 用 ECS に Application Auto Scaling（Target Tracking）を設定し、最小・最大タスク数を tfvars で指定する
