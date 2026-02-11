@@ -64,6 +64,7 @@ module "rds" {
   instance_class           = var.rds_instance_class
   allocated_storage_gb     = var.rds_allocated_storage_gb
   multi_az                 = var.rds_multi_az
+  deletion_protection     = var.rds_deletion_protection
   tags                     = var.tags
   db_password              = local.rds_password
 }

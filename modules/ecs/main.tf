@@ -61,6 +61,29 @@ resource "aws_iam_role_policy" "task_execution_ssm_service_url" {
   })
 }
 
+# api_extra_secrets 用（SSM / Secrets Manager の ARN を読む権限）
+resource "aws_iam_role_policy" "task_execution_extra_secrets" {
+  count = length(var.api_extra_secret_arns) > 0 ? 1 : 0
+
+  name   = "extra-secrets"
+  role   = aws_iam_role.task_execution.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameters"]
+        Resource = var.api_extra_secret_arns
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = var.api_extra_secret_arns
+      }
+    ]
+  })
+}
+
 # --- タスクロール（S3 アプリバケット等）---
 resource "aws_iam_role" "task" {
   name = "${local.name_prefix}-ecs-task"
@@ -181,7 +204,8 @@ locals {
   )
   api_secrets = concat(
     var.db_password_secret_arn != "" ? [{ name = "DB_PASSWORD", valueFrom = var.db_password_secret_arn }] : [],
-    var.use_service_url_ssm ? [{ name = "SERVICE_URL", valueFrom = var.service_url_ssm_arn }] : []
+    var.use_service_url_ssm ? [{ name = "SERVICE_URL", valueFrom = var.service_url_ssm_arn }] : [],
+    var.api_extra_secrets
   )
 }
 

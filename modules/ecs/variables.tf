@@ -79,7 +79,19 @@ variable "db_host_replications" {
 variable "api_extra_environment" {
   type = list(object({ name = string, value = string }))
   default = []
-  description = "追加の環境変数 (JWT 系など)。{ name, value } のリスト"
+  description = "追加の環境変数 (JWT 系など)。{ name, value } のリスト。本番では api_extra_secrets で SSM/Secrets Manager を推奨"
+}
+
+variable "api_extra_secrets" {
+  type        = list(object({ name = string, valueFrom = string }))
+  default     = []
+  description = "追加の secrets（SSM パラメータまたは Secrets Manager の ARN）。本番の JWT 等は valueFrom で渡すと state に平文が残らない"
+}
+
+variable "api_extra_secret_arns" {
+  type        = list(string)
+  default     = []
+  description = "api_extra_secrets で参照する ARN の一覧。タスク実行ロールに GetParameters / GetSecretValue を付与するために必要"
 }
 
 variable "sentry_dsn" {

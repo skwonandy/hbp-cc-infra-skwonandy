@@ -68,6 +68,12 @@ variable "rds_multi_az" {
   default     = false
 }
 
+variable "rds_deletion_protection" {
+  description = "RDS deletion protection (true for prod)"
+  type        = bool
+  default     = false
+}
+
 # ElastiCache (Redis)
 variable "elasticache_node_type" {
   description = "ElastiCache node type"

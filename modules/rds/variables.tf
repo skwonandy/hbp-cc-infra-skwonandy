@@ -42,6 +42,12 @@ variable "multi_az" {
   description = "Enable Multi-AZ"
 }
 
+variable "deletion_protection" {
+  type        = bool
+  default     = false
+  description = "Enable deletion protection (recommended true for prod)"
+}
+
 variable "tags" {
   type        = map(string)
   default     = {}

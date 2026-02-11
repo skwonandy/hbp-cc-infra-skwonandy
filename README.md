@@ -6,7 +6,10 @@ hbp-cc アプリケーションの AWS インフラを Terraform で管理する
 
 - Terraform 1.14.4
 - AWS CLI 設定済み（または環境変数 `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`）
-- 各環境の `backend.tf` は初期状態で **local** バックエンド。S3 バックエンドに切り替える場合は、バケットと DynamoDB テーブル作成後に `backend.tf` のコメントを入れ替え、`terraform init -reconfigure` を実行する
+
+### GitHub Actions と OIDC
+
+アプリリポジトリ（hbp-cc-skwonandy）のデプロイ workflow は、**GitHub Environment 名が Terraform の env（dev / stg / prod）と一致している必要があります**。リポジトリの Settings → Environments で **dev** / **stg** / **prod** の 3 つを作成し、各 Environment の Secrets に **`AWS_DEPLOY_ROLE_ARN`** のみ登録してください。CloudFront のキャッシュ無効化用の Distribution ID は、workflow 内で環境名（`hbp-cc-<env> frontend` の Comment）から自動取得するため、別途登録は不要です。ブランチ名は development / staging / production のままでよく、workflow 内で dev / stg / prod にマッピングされます。
 
 ## Terraform 実行に必要な IAM 権限
 
@@ -44,7 +47,7 @@ AccessDeniedException: User: arn:aws:iam::ACCOUNT:user/USERNAME is not authorize
 
 **AWS CLI で直接アタッチする場合**
 
-ポリシーを JSON で作成してから、指定ユーザーにアタッチする例です（`YOUR_ACCOUNT_ID` と `ap-northeast-1` を必要に応じて置き換え、`janscore` をアタッチ先の IAM ユーザー名に変更してください）。
+ポリシーを JSON で作成してから、指定ユーザーにアタッチする例です（`YOUR_ACCOUNT_ID` と `ap-northeast-1` を必要に応じて置き換え、`YOUR_IAM_USER` をアタッチ先の IAM ユーザー名に変更してください）。
 
 ```bash
 # 1. ポリシーを作成（上記 JSON を policy.json として保存してから）
@@ -54,7 +57,7 @@ aws iam create-policy \
 
 # 2. 作成したポリシーを IAM ユーザーにアタッチ
 aws iam attach-user-policy \
-  --user-name janscore \
+  --user-name YOUR_IAM_USER \
   --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/hbp-cc-dev-terraform-runner-ssm
 ```
 
@@ -77,6 +80,12 @@ aws ssm put-parameter --name /hbp-cc/dev/rds-master-password --type SecureString
 - **使用不可文字**: 次の文字は含めないこと — `"`（ダブルクォート）, `` ` ``（バッククォート）, `\`, `@`, `/`, 半角スペース
 
 英大文字・小文字・数字・記号（上記以外）を組み合わせた強めのパスワードを推奨します。
+
+**本番（prod）での推奨**:
+
+- **RDS**: `rds_deletion_protection = true` を tfvars で指定し、誤削除を防ぐ。
+- **DB パスワードの渡し方**: ECS タスクには `db_password_secret_arn`（Secrets Manager の ARN）を渡し、`db_password_plain` は使わない。パスワードを Secrets Manager に登録し、その ARN を ECS モジュールの `db_password_secret_arn` に指定する。
+- **JWT 等の秘密鍵**: `api_extra_environment` で平文を渡さず、SSM Parameter Store（SecureString）または Secrets Manager に格納し、ECS モジュールの `api_extra_secrets`（`{ name, valueFrom }` のリスト）と `api_extra_secret_arns`（タスク実行ロールに付与する ARN 一覧）で渡す。Terraform state に平文が残らない。
 
 ### SES 送信元メールアドレス
 

@@ -63,17 +63,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     target_origin_id       = "S3-${var.frontend_bucket_id}"
     compress               = true
     viewer_protocol_policy = "redirect-to-https"
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-
-    min_ttl     = 0
-    default_ttl = 3600
-    max_ttl     = 86400
+    cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6" # Managed CachingOptimized (no query/cookie forward)
   }
 
   # SPA: 404/403 で index.html を返す

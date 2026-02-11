@@ -55,6 +55,7 @@ resource "aws_db_instance" "main" {
 
   backup_retention_period = 7
   skip_final_snapshot     = var.env != "prod"
+  deletion_protection     = var.deletion_protection
 
   tags = merge(var.tags, {
     Name = "${var.project_name}-${var.env}-rds"
