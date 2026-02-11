@@ -140,6 +140,12 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
             "cloudfront:GetDistribution"
           ]
           Resource = "*"
+        },
+        {
+          Sid    = "SSMApiBaseUrl"
+          Effect = "Allow"
+          Action = ["ssm:GetParameter"]
+          Resource = "arn:aws:ssm:*:*:parameter/hbp-cc/${var.env}/*"
         }
       ],
       var.create_worker_repository ? [

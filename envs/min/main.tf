@@ -141,5 +141,13 @@ module "cloudfront" {
   tags                                = var.tags
 }
 
+# フロントエンドビルド時に API のベース URL を参照するため（GitHub Actions が SSM から取得）
+resource "aws_ssm_parameter" "api_base_url" {
+  name        = "/hbp-cc/${var.env}/api-base-url"
+  description = "API base URL for frontend build (e.g. ALB URL + /api)"
+  type        = "String"
+  value       = "http://${module.alb.alb_dns_name}/api"
+}
+
 # min では現在のコードが最低限動けばよいため Batch は不要（ジョブ実行は行わない）
 # module "batch" { ... }
