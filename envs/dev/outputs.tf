@@ -89,3 +89,13 @@ output "codedeploy_deployment_group_name" {
   description = "CodeDeploy deployment group name"
   value       = module.ecs.codedeploy_deployment_group_name
 }
+
+output "terraform_runner_policy_arn" {
+  description = "ARN of the Terraform runner policy (scoped to this env)"
+  value       = module.terraform_runner_policy.policy_arn
+}
+
+output "terraform_runner_role_arn" {
+  description = "ARN of the Terraform runner role. Assume this role before running terraform plan/apply in this env."
+  value       = module.terraform_runner_policy.role_arn
+}

@@ -201,5 +201,17 @@ resource "aws_ssm_parameter" "service_url" {
   overwrite   = true
 }
 
+# Terraform 実行用ロール（案 A: assume 運用）。allow_assume_principal_arns を設定するとロールが作成され、指定した IAM ユーザー/ロールのみが assume 可能。
+module "terraform_runner_policy" {
+  source = "../../modules/terraform-runner-policy"
+
+  env                      = var.env
+  project_name             = var.project_name
+  aws_region               = var.aws_region
+  account_id               = data.aws_caller_identity.current.account_id
+  allow_assume_principal_arns = var.terraform_runner_allow_assume_principal_arns
+  tags                     = var.tags
+}
+
 # dev では Batch は不要（ジョブ実行は行わない）
 # module "batch" { ... }

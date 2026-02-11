@@ -30,3 +30,9 @@ variable "project_name" {
   type        = string
   default     = "hbp-cc"
 }
+
+variable "terraform_runner_allow_assume_principal_arns" {
+  description = "IAM user or role ARNs allowed to assume the Terraform runner role. Empty = policy only, no role."
+  type        = list(string)
+  default     = []
+}

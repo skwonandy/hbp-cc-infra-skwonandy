@@ -18,6 +18,19 @@ provider "aws" {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
+module "terraform_runner_policy" {
+  source = "../../modules/terraform-runner-policy"
+
+  env                        = var.env
+  project_name               = var.project_name
+  aws_region                 = var.aws_region
+  account_id                 = data.aws_caller_identity.current.account_id
+  allow_assume_principal_arns = var.terraform_runner_allow_assume_principal_arns
+  tags                       = var.tags
+}
+
 module "vpc" {
   source = "../../modules/vpc"
 

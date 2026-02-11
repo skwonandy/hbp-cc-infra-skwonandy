@@ -6,7 +6,8 @@ hbp-cc アプリケーションの AWS インフラを Terraform で管理する
 
 - **envs/** — 環境ごとのルートモジュール
   - `envs/dev/`, `envs/stg/`, `envs/prod/` で `main.tf`・`variables.tf`・`terraform.tfvars` を配置
-- **modules/** — 再利用モジュール（vpc, rds, elasticache, s3, cicd, alb, ecs, cloudfront, ses, acm, route53, batch, sqs, monitoring など）
+- **modules/** — 再利用モジュール（vpc, rds, elasticache, s3, cicd, alb, ecs, cloudfront, ses, terraform-runner-policy, acm, route53, batch, sqs, monitoring など）
+- **scripts/** — 運用スクリプト（例: `assume-terraform-role.sh` で Terraform 実行用ロールを assume）
 - **versions.tf** — Terraform および AWS provider のバージョン制約
 
 ## 前提
@@ -59,6 +60,46 @@ terraform apply
 
 開発初期や検証では、上記をまとめて付与するために **PowerUserAccess** に IAM のみ追加で付与する運用もよく使われます。本番では、リソースの ARN を制限したカスタムポリシーに絞ることを推奨します。
 
+### Terraform 実行用ロール（案 A: assume 運用）
+
+ARN 制限付きのポリシーと **Terraform 実行用ロール** は [modules/terraform-runner-policy](modules/terraform-runner-policy) で定義されています。環境（dev / stg / prod）ごとに、その環境のリソースにのみ権限が限定されたロールが作成されます。
+
+**Terraform 実行者が持つ権限（2 回目以降）**: **Terraform 実行用ロールを assume する権限だけ**にしてください（PowerUserAccess は付けない）。そうすることで、Terraform を実行するには必ず assume が必要になり、assume したときのみスコープ付きの権限が使われます。
+
+- **初回のみ**: 管理者（PowerUserAccess 等を持つ別の IAM ユーザー）が対象環境で `terraform apply` を実行し、ロールを作成する。各環境の `terraform.tfvars` で `terraform_runner_allow_assume_principal_arns` に、assume を許可する IAM ユーザーまたはロールの ARN のリストを設定する。
+- **2 回目以降**: Terraform を実行する人は、**assume 用スクリプト**で一時クレデンシャルを取得してから `terraform plan` / `apply` を実行する。
+
+**assume の手順**（リポジトリルートで実行）:
+
+```bash
+# dev 用ロールを assume し、現在のシェルに環境変数をセット
+eval $(./scripts/assume-terraform-role.sh dev)
+cd envs/dev && terraform plan
+```
+
+stg / prod の場合は `dev` を `stg` / `prod` に置き換えてください。スクリプトには AWS CLI と jq（または Python 3）が必要です。ロールが未作成の場合はスクリプトがエラーで終了します。
+
+**Terraform 実行者に付与する assume 用ポリシー例**（PowerUserAccess の代わりにこのみ付与）:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": [
+        "arn:aws:iam::YOUR_ACCOUNT_ID:role/hbp-cc-dev-terraform-runner",
+        "arn:aws:iam::YOUR_ACCOUNT_ID:role/hbp-cc-stg-terraform-runner",
+        "arn:aws:iam::YOUR_ACCOUNT_ID:role/hbp-cc-prod-terraform-runner"
+      ]
+    }
+  ]
+}
+```
+
+`YOUR_ACCOUNT_ID` を実際の AWS アカウント ID に置き換えてください。ロール ARN は各環境で `terraform output terraform_runner_role_arn` でも確認できます。
+
 ### SSM Parameter Store
 
 `envs/dev/main.tf` で `/hbp-cc/<env>/api-base-url` と `/hbp-cc/<env>/service-url` を作成するため、**ssm:PutParameter**（および運用で Get/Delete する場合は GetParameter, DeleteParameter）が必要です。権限不足の場合は次のようなエラーになります。
@@ -67,45 +108,6 @@ terraform apply
 AccessDeniedException: User: arn:aws:iam::ACCOUNT:user/USERNAME is not authorized to perform: ssm:PutParameter on resource: arn:aws:ssm:REGION:ACCOUNT:parameter/hbp-cc/dev/...
 ```
 
-**例: 最小限のインラインポリシー（dev で SSM パラメータを作成する場合）**
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ssm:PutParameter",
-        "ssm:GetParameter",
-        "ssm:DeleteParameter",
-        "ssm:AddTagsToResource"
-      ],
-      "Resource": "arn:aws:ssm:ap-northeast-1:YOUR_ACCOUNT_ID:parameter/hbp-cc/dev/*"
-    }
-  ]
-}
-```
-
-`YOUR_ACCOUNT_ID` を実際の AWS アカウント ID に、リージョンが ap-northeast-1 でない場合は `ap-northeast-1` を該当リージョンに置き換えてください。他の環境（stg/prod）でも SSM を使う場合は、同様に `parameter/hbp-cc/stg/*` などを追加してください。
-
-**AWS CLI で直接アタッチする場合**
-
-ポリシーを JSON で作成してから、指定ユーザーにアタッチする例です（`YOUR_ACCOUNT_ID` と `ap-northeast-1` を必要に応じて置き換え、`YOUR_IAM_USER` をアタッチ先の IAM ユーザー名に変更してください）。
-
-```bash
-# 1. ポリシーを作成（上記 JSON を policy.json として保存してから）
-aws iam create-policy \
-  --policy-name hbp-cc-dev-terraform-runner-ssm \
-  --policy-document file://policy.json
-
-# 2. 作成したポリシーを IAM ユーザーにアタッチ
-aws iam attach-user-policy \
-  --user-name YOUR_IAM_USER \
-  --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/hbp-cc-dev-terraform-runner-ssm
-```
-
-既に同名ポリシーが存在する場合は、上記の 2 だけを実行すればよいです。
 
 ### RDS マスターパスワード（SSM のみ）
 
