@@ -43,16 +43,11 @@ variable "create_oidc_provider" {
   default     = false
 }
 
-# RDS (postgres); do not set db_password in tfvars — use TF_VAR_db_password or -var
-variable "db_password" {
-  description = "RDS master password (pass via TF_VAR_db_password or -var). Must be 8–128 chars; avoid \" ` \\ @ / and space to prevent Invalid master password."
+# RDS (postgres). パスワードは SSM のみ（-var での渡し方は廃止）。
+variable "db_password_ssm_parameter_name" {
+  description = "SSM Parameter Store path for RDS master password (SecureString). Empty = use /hbp-cc/<env>/rds-master-password per environment."
   type        = string
-  sensitive   = true
-
-  validation {
-    condition     = length(var.db_password) >= 8 && length(var.db_password) <= 128
-    error_message = "db_password must be 8-128 characters (RDS). Do not use: double-quote, backslash, @, /, or space."
-  }
+  default     = ""
 }
 
 variable "rds_instance_class" {

@@ -10,7 +10,7 @@ vpc_cidr     = "10.1.0.0/16"
 github_org_repo      = "skwonandy/hbp-cc-skwonandy"
 create_oidc_provider = true
 
-# db_password は tfvars に書かず、TF_VAR_db_password または -var で渡すこと
+# RDS パスワードは SSM のみ（環境ごと /hbp-cc/<env>/rds-master-password に事前登録すること）
 
 tags = {
   Environment = "dev"

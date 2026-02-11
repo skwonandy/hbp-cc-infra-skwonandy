@@ -60,9 +60,18 @@ aws iam attach-user-policy \
 
 既に同名ポリシーが存在する場合は、上記の 2 だけを実行すればよいです。
 
-### RDS マスターパスワード
+### RDS マスターパスワード（SSM のみ）
 
-RDS のマスターパスワード（`db_password` / `TF_VAR_db_password`）は次の条件を満たしてください。満たさないと `Invalid master password` になります。
+RDS のマスターパスワードは **SSM Parameter Store のみ**で参照します（`-var` での渡し方は廃止）。**環境ごと**にパスが決まります: `/hbp-cc/<env>/rds-master-password`（dev なら `/hbp-cc/dev/rds-master-password`、stg なら `/hbp-cc/stg/rds-master-password`）。別パスにしたいときだけ `db_password_ssm_parameter_name` を tfvars で指定する。
+
+**初回のみ**: 対象環境の SSM に登録してから `terraform plan` / `apply` を実行する。
+
+```bash
+# dev の例
+aws ssm put-parameter --name /hbp-cc/dev/rds-master-password --type SecureString --value 'あなたのパスワード' --region ap-northeast-1
+```
+
+パスワードは次の条件を満たすこと（満たさないと `Invalid master password`）。
 
 - **長さ**: 8 文字以上 128 文字以下
 - **使用不可文字**: 次の文字は含めないこと — `"`（ダブルクォート）, `` ` ``（バッククォート）, `\`, `@`, `/`, 半角スペース

@@ -21,6 +21,27 @@ provider "aws" {
 # Terraform 実行時の認証情報確認用（plan/apply 時にどの identity か分かる）
 data "aws_caller_identity" "current" {}
 
+# RDS マスターパスワード: SSM から取得（環境ごとに /hbp-cc/<env>/rds-master-password。事前に SSM へ登録すること）
+locals {
+  rds_password_ssm_path = var.db_password_ssm_parameter_name != "" ? var.db_password_ssm_parameter_name : "/hbp-cc/${var.env}/rds-master-password"
+}
+
+data "aws_ssm_parameter" "rds_password" {
+  name            = local.rds_password_ssm_path
+  with_decryption = true
+}
+
+locals {
+  rds_password = data.aws_ssm_parameter.rds_password.value
+}
+
+check "rds_password_set" {
+  assert {
+    condition     = length(local.rds_password) >= 8 && length(local.rds_password) <= 128
+    error_message = "SSM parameter ${local.rds_password_ssm_path} must be 8-128 characters (RDS requirement)."
+  }
+}
+
 module "vpc" {
   source = "../../modules/vpc"
 
@@ -44,7 +65,7 @@ module "rds" {
   allocated_storage_gb     = var.rds_allocated_storage_gb
   multi_az                 = var.rds_multi_az
   tags                     = var.tags
-  db_password              = var.db_password
+  db_password              = local.rds_password
 }
 
 module "elasticache" {
@@ -110,7 +131,7 @@ module "ecs" {
   db_host_replications         = "[\"${module.rds.db_instance_address}\"]"
   db_name                      = "main"
   db_user                      = "postgres"
-  db_password_plain            = var.db_password
+  db_password_plain            = local.rds_password
   db_password_secret_arn       = ""
   redis_host                   = module.elasticache.redis_host
   s3_app_bucket                = module.s3.app_bucket_id
