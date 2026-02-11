@@ -50,11 +50,6 @@ output "ecr_worker_url" {
   value       = module.cicd.ecr_worker_url
 }
 
-output "ecr_frontend_url" {
-  description = "ECR repository URL for frontend"
-  value       = module.cicd.ecr_frontend_url
-}
-
 output "github_actions_deploy_role_arn" {
   description = "Register this as AWS_DEPLOY_ROLE_ARN in GitHub Environment 'dev' secrets"
   value       = module.cicd.github_actions_deploy_role_arn

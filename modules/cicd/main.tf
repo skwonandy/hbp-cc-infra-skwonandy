@@ -1,4 +1,4 @@
-# ECR リポジトリ（API / worker / frontend）。GitHub OIDC 用 IAM ロールは github_org_repo 指定時のみ作成。
+# ECR リポジトリ（API / worker）。フロントは S3 + CloudFront で配信するため ECR は不要。GitHub OIDC 用 IAM ロールは github_org_repo 指定時のみ作成。
 
 # --- GitHub OIDC（アカウントで1つ。create_oidc_provider=true の環境で作成、他は data で参照）---
 data "aws_caller_identity" "current" {
@@ -197,15 +197,3 @@ resource "aws_ecr_repository" "worker" {
   })
 }
 
-resource "aws_ecr_repository" "frontend" {
-  name                 = "${var.project_name}-${var.env}-frontend"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.env}-frontend"
-  })
-}
