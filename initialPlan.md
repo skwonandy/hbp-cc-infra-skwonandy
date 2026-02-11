@@ -71,9 +71,9 @@ Terraform の AWS プロバイダは認証情報を必要とする。`aws config
 ### 4. リポジトリの準備と初回 init
 
 - 本リポジトリ（hbp-cc-infra）を clone 済み、またはルートが `hbp-cc-infra` である前提。
-- **対象環境**（例: min）のディレクトリに移動して初期化する:
+- **対象環境**（例: dev）のディレクトリに移動して初期化する:
   ```bash
-  cd hbp-cc-infra/envs/min
+  cd hbp-cc-infra/envs/dev
   terraform init
   ```
   - 初回はプロバイダ（aws 等）がダウンロードされ、`.terraform.lock.hcl` が生成される。このロックファイルは **リポジトリにコミット**する（CI と同一バージョンにするため）。
@@ -88,8 +88,8 @@ Terraform の AWS プロバイダは認証情報を必要とする。`aws config
 |------|----------------|
 | Terraform >= 1.5.0 | `terraform version` |
 | AWS 認証が効いている | `aws sts get-caller-identity` |
-| 作業ディレクトリ | `envs/min` または `envs/dev` 等で `terraform init` 済み |
-| ロックファイル | `envs/min/.terraform.lock.hcl` をコミット推奨 |
+| 作業ディレクトリ | `envs/dev` または `envs/stg` 等で `terraform init` 済み |
+| ロックファイル | `envs/dev/.terraform.lock.hcl` をコミット推奨 |
 
 
 ## 前提とスコープ
@@ -99,7 +99,7 @@ Terraform の AWS プロバイダは認証情報を必要とする。`aws config
 - **CI/CD**: **CI および CD は GitHub Actions で行う**。アプリの CI（Lint・テスト）は既存の [.github/workflows/ci.yml](.github/workflows/ci.yml) を継続利用。Terraform の plan/apply とアプリのデプロイ（ECR push → ECS 更新）も GitHub Actions のワークフローで実行する。
 - **クラウド**: AWS（ap-northeast-1）。既存の [docker-compose.yml](server/docker-compose.yml) および [jobs/caller/aws_caller.py](server/fastapi/app/jobs/caller/aws_caller.py) が参照する ECS / Batch / S3 / SQS / CloudFront 等と整合させる
 - **医療業界 SaaS**: 医療情報・個人情報を扱うため、本プランでは **医療情報システムの安全管理に関するガイドライン** および **個人情報保護** を踏まえた構成とする（暗号化、監査ログ、可用性、ネットワーク分離を後述セクションで明示する）。
-- **環境の種類**: **min** / **dev** / **stg** / **prod** の 4 段階。**環境間の違いはサイズのみ**とする（後述）。**min** は dev より低スペック（最小スペック）で AWS に全てデプロイする環境。構成（VPC エンドポイント、Batch、監査・暗号化の有無）は全環境で同一とし、`terraform.tfvars` で **インスタンスクラス・タスク数・vCPU/メモリ・ストレージ・AZ 数** だけを変える。
+- **環境の種類**: **dev** / **stg** / **prod** の 3 段階。**環境間の違いはサイズのみ**とする（後述）。**dev** は開発用のフルスタック環境（最小スペックで AWS に全てデプロイ）。構成（VPC エンドポイント、Batch、監査・暗号化の有無）は全環境で同一とし、`terraform.tfvars` で **インスタンスクラス・タスク数・vCPU/メモリ・ストレージ・AZ 数** だけを変える。
 
 ## アプリが想定する AWS リソース（現状の参照から）
 
@@ -243,12 +243,12 @@ flowchart LR
 
 ### Terraform 環境とモジュールの関係
 
-環境（min / dev / stg / prod）は同じモジュールを呼び出し、`terraform.tfvars` のサイズとタグのみ変える。
+環境（dev / stg / prod）は同じモジュールを呼び出し、`terraform.tfvars` のサイズとタグのみ変える。
 
 ```mermaid
 flowchart TB
   subgraph envs [envs]
-    Min[min]
+    Dev[dev]
     Dev[dev]
     Stg[stg]
     Prod[prod]
@@ -304,7 +304,7 @@ hbp-cc/infra/
 ├── versions.tf             # required_version, required_providers（aws 等）のバージョン制約
 ├── backend.tf              # 環境ごとで上書きする想定（後述）
 ├── envs/
-│   ├── min/                # 最小スペックで AWS に全デプロイ（構成は他環境と同じ）
+│   ├── dev/                # 開発用フルスタック（最小スペックで AWS に全デプロイ、構成は他環境と同じ）
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   ├── outputs.tf
@@ -337,7 +337,7 @@ hbp-cc/infra/
 ```
 
 - **モジュールのベストプラクティス**: 各モジュールは **単一の責務** にし、**variables（入力）と outputs（出力）の契約** を明確にする。HashiCorp の [Standard Module Structure](https://developer.hashicorp.com/terraform/language/modules/develop/structure) に従い、各モジュールに **README.md** を置き、用途・必須/任意の variables・outputs を記載する。
-- ルートの `versions.tf` / `backend.tf` は共通のひな形とし、実際の `plan` / `apply` は `envs/<env>/` で行う想定（`-chdir=envs/min` / `envs/dev` など）
+- ルートの `versions.tf` / `backend.tf` は共通のひな形とし、実際の `plan` / `apply` は `envs/<env>/` で行う想定（`-chdir=envs/dev` / `envs/stg` など）
 - **versions.tf のベストプラクティス**: `terraform` ブロックで `**required_version**`（例: `>= 1.5.0`）を指定し、`**required_providers**` でプロバイダのバージョン制約（例: `aws = "~> 5.0"`）を明示する。`**.terraform.lock.hcl` は .gitignore に含めずリポジトリにコミット**し、CI とローカルで同じプロバイダ版が使われるようにする。
 - 環境ごとに backend の S3 バケット・キーを分け、state の混在を防ぐ
 - 環境間の違いは **サイズのみ**。各環境の `terraform.tfvars` で `instance_class`・`task_cpu`・`task_memory`・`task_count`・`storage_gb`・`az_count` 等を指定する（後述「環境ごとの違い（サイズのみ）」参照）
@@ -359,7 +359,7 @@ hbp-cc/infra/
 - **batch**: **AWS Batch** — 重い処理や別プロセスで実行したいジョブ（メール一括送信、レポート生成など）を、ECS とは別の Fargate/EC2 で動かす AWS のマネージドサービス。Terraform では compute environment（Fargate 推奨）、job queue、job definition を定義し、[aws_caller.py](server/fastapi/app/jobs/caller/aws_caller.py) が参照する `jobQueue`（例: `{env}_default`）と `jobDefinition`（例: `{env}_fastapi_default_job`）の名前と合わせる。
 - **ses**: メール送信用（SES のドメイン ID またはメールアドレス検証、送信制限の設定）。アプリの `AWS_SES_REGION` と連携
 - **sqs**: メーラー用キュー（`AWS_SQS_MAILER_URL`）、必要に応じて LINE 用キュー
-- **route53**: ドメイン・DNS を Terraform で管理。**ドメイン分離**として、環境ごとにサブドメインを分ける（例: `api-min.xxx.jp`、`api-dev.xxx.jp`、`api-stg.xxx.jp`、`api.xxx.jp` または `api-prod.xxx.jp`）。各環境の ALB / CloudFront に A または CNAME で向ける。
+- **route53**: ドメイン・DNS を Terraform で管理。**ドメイン分離**として、環境ごとにサブドメインを分ける（例: `api-dev.xxx.jp`、`api-stg.xxx.jp`、`api.xxx.jp` または `api-prod.xxx.jp`）。各環境の ALB / CloudFront に A または CNAME で向ける。
 - **acm**: ALB および CloudFront 用の TLS 証明書を Terraform で発行・検証（ACM）。Route53 で DNS 検証する想定。環境ごとのサブドメインに対応した証明書（ワイルドカードまたは環境別）。
 - **monitoring**: 想定外のアクセス集中や障害を検知するため、CloudWatch アラーム（ALB 5xx、ECS CPU、RDS 接続数・CPU 等）と SNS トピック（通知先）を Terraform で定義する。各モジュールの出力（ALB ARN、ECS サービス名、RDS 識別子等）を参照してアラームを張る。
 - **cicd**: **ECR**（API / worker / frontend 用リポジトリを環境ごとに作成。push 時イメージスキャン有効）、および GitHub OIDC 用 IAM ロール（後述）。デプロイ先として ECR を構成に含める。
@@ -388,10 +388,10 @@ hbp-cc/infra/
   - Terraform の state は S3 のバージョニングと DynamoDB ロックで改ざん・同時変更を防止。本番への `apply` は GitHub Actions の履歴で誰がいつ実行したかを残す。
   - 本番環境の IAM は最小権限とし、必要に応じて MFA や条件付きアクセスを検討（Terraform で IAM ポリシーを定義）。
 - **ドメイン・証明書（Terraform、ドメイン分離）**
-  - **ドメインと DNS**: Route53 でホストゾーンを管理し、Terraform（`modules/route53`）でレコードを定義する。**ドメイン分離**として、環境ごとにサブドメインを分ける（例: `api-min.example.jp`、`api-dev.example.jp`、`api-stg.example.jp`、`api.example.jp`）。フロント用も同様（例: `app-min.example.jp`、`app.example.jp`）。
+  - **ドメインと DNS**: Route53 でホストゾーンを管理し、Terraform（`modules/route53`）でレコードを定義する。**ドメイン分離**として、環境ごとにサブドメインを分ける（例: `api-dev.example.jp`、`api-stg.example.jp`、`api.example.jp`）。フロント用も同様（例: `app-dev.example.jp`、`app.example.jp`）。
   - **証明書**: ACM で ALB および CloudFront 用の TLS 証明書を発行。Terraform（`modules/acm`）で証明書リソースと Route53 による DNS 検証を定義する。環境ごとのサブドメインに対応した証明書（ワイルドカード `*.example.jp` または環境別）を用意する。
 - **コスト・タグ付け**
-  - 全リソースに `Environment`（min / dev / stg / prod）、`Project`（例: hbp-cc）、`CostCenter` 等のタグを付与する。各モジュールで `tags` 変数を受け取り、`envs/<env>/terraform.tfvars` で共通タグを渡す。AWS コスト配分で環境別・プロジェクト別に集計できるようにする。
+  - 全リソースに `Environment`（dev / stg / prod）、`Project`（例: hbp-cc）、`CostCenter` 等のタグを付与する。各モジュールで `tags` 変数を受け取り、`envs/<env>/terraform.tfvars` で共通タグを渡す。AWS コスト配分で環境別・プロジェクト別に集計できるようにする。
 - **SSM Session Manager で ECS タスクに入る**
   - 本番・stg 等の ECS タスクにデバッグで入る場合は、踏み台（Bastion）は使わず **SSM Session Manager（ECS Exec）** を使う。Terraform で ECS タスク定義の実行ロールに `AmazonSSMManagedInstanceCore` 相当のポリシーを付与し、ECS サービスで `enable_execute_command = true` を設定する。VPC に SSM 用の VPC エンドポイント（ssmmessages, ec2messages, ssm）が既に含まれている前提。接続は `aws ecs execute-command` で行う。
 - **想定外のアクセス集中への対応**
@@ -401,17 +401,17 @@ hbp-cc/infra/
 
 上記に従い、各モジュール（vpc / rds / s3 / elasticache / alb 等）の Terraform リソースで、暗号化・プライベート配置・ログ出力・タグをデフォルトで有効化する。マルチ AZ や PITR は変数（例: `az_count`・`multi_az`・`enable_pitr`）で制御し、環境ごとの tfvars で指定する。
 
-- **環境ごとの違い（サイズのみ）**: min / dev / stg / prod の差は **リソースのサイズのみ**とする。構成（VPC エンドポイントの種類・Batch の有無・監査・暗号化）は全環境で同一。
+- **環境ごとの違い（サイズのみ）**: dev / stg / prod の差は **リソースのサイズのみ**とする。構成（VPC エンドポイントの種類・Batch の有無・監査・暗号化）は全環境で同一。
   - **サイズ系の変数例**: `instance_class`（RDS / ElastiCache のインスタンス型）、`task_cpu`・`task_memory`・`task_count`（ECS の vCPU/メモリ/タスク数）、`storage_gb`（RDS / S3 等）、`az_count`（1 または 2）、`multi_az`（RDS のマルチ AZ 有無）、`enable_pitr`（RDS の PITR 有無）。これらを `envs/<env>/terraform.tfvars` で環境ごとに設定する。
-  - **min**: 上記を最小値にし、月額を抑える（例: az_count=1、instance_class=db.t4g.micro、task_count=1、storage_gb=20）。**現在のコードが最低限動けばよい**ため、min では **worker（ECR）・AWS Batch・SQS は作成しない**。VPC / RDS / ElastiCache / S3 / ECR（API・frontend）のみ。
-  - **dev / stg / prod**: 同じモジュール・同じ構成で、tfvars の数値を大きくする（az_count=2、より大きな instance_class、複数タスク、 longer バックアップ保持など）。
-  - **CD は全環境で必要**。deploy ワークフロー（deploy-min.yml 等）は全環境で用意し、トリガー条件だけ環境ごとに分ける。
+  - **dev**: 上記を最小値にし、月額を抑える（例: az_count=2、instance_class=db.t4g.micro、task_count=1、storage_gb=20）。**開発用**のため、dev では **worker（ECR）・AWS Batch・SQS は作成しない**。VPC / RDS / ElastiCache / S3 / ECR（API・frontend）のみ。
+  - **stg / prod**: 同じモジュール・同じ構成で、tfvars の数値を大きくする（az_count=2、より大きな instance_class、複数タスク、longer バックアップ保持など）。
+  - **CD は全環境で必要**。deploy ワークフロー（deploy-backend.yml 等）は共通でブランチ（dev / stg / prod）ごとにトリガーする。
 
 ---
 
-## min の構築とフロント・バックエンドのデプロイ
+## dev の構築とフロント・バックエンドのデプロイ
 
-min 環境の Terraform 構築から、バックエンド（ECR push）・フロントエンド（S3 アップロード）までの一連の手順は [docs/MIN_BUILD_AND_DEPLOY.md](docs/MIN_BUILD_AND_DEPLOY.md) に記載する。
+dev 環境の Terraform 構築から、バックエンド（ECR push）・フロントエンド（S3 アップロード）までの一連の手順は [docs/DEV_BUILD_AND_DEPLOY.md](docs/DEV_BUILD_AND_DEPLOY.md) に記載する。
 
 ## バックエンドのデプロイ手順
 
@@ -431,8 +431,8 @@ min 環境の Terraform 構築から、バックエンド（ECR push）・フロ
     - **ワークフロー**: ビルド → ECR push → 新タスク定義リビジョン作成 → **CodeDeploy でデプロイ**（新リビジョンを green にデプロイし、検証後にトラフィックを green に切り替え）。IAM に CodeDeploy の `CreateDeployment` 等の権限を含める。
   - **フロントエンドの CD は S3 + CloudFront** とする。フロント（Angular）は静的ビルドを **S3 にアップロード**し、**CloudFront のキャッシュ無効化（invalidation）** で配信する。バックエンドのブルー/グリーンとは別パイプラインとし、ワークフローは「Angular ビルド → S3 アップロード（環境別バケット/プレフィックス）→ CloudFront invalidation」。Terraform でフロント用 S3 バケットと CloudFront のオリジンを S3 にしたディストリビューションを定義し、GitHub Actions 用 IAM に S3 書き込み・CloudFront CreateInvalidation 権限を付与する。
   - **arq worker** は、従来どおり ECS のローリング更新でよい。バックエンド API（FastAPI）の ECS サービスに限定してブルー/グリーンを適用する想定。
-  - **ワークフローファイル**: バックエンド用 `deploy-min.yml`、`deploy-dev.yml`、`deploy-stg.yml`、`deploy-prod.yml` に加え、フロント用は `deploy-frontend-min.yml` 等を用意するか、同一ワークフロー内でバックエンドとフロントのジョブを分ける。各ファイルでデプロイ先環境とトリガー条件を分ける。
-- **環境分離**: min / dev / stg / prod でデプロイ用 IAM ロールと ECR を分けるか、同一アカウント内でリポジトリ・タグで分けるかは tfvars とワークフローの `environment` で制御する。
+  - **ワークフローファイル**: バックエンド・フロントとも `deploy-backend.yml` / `deploy-frontend.yml` をブランチ **development / staging / production** でトリガー。バックエンドはブランチ名を dev/stg/prod にマッピングして ECR・ECS 名に使用。各 Environment（development, staging, production）でデプロイ先とトリガー条件を分ける。
+- **環境分離**: dev / stg / prod でデプロイ用 IAM ロールと ECR を分けるか、同一アカウント内でリポジトリ・タグで分けるかは tfvars とワークフローの `environment` で制御する。
 
 ---
 
@@ -463,18 +463,18 @@ min 環境の Terraform 構築から、バックエンド（ECR push）・フロ
 
 ## 実装の進め方（推奨順）
 
-1. **infra の骨組み**: `infra/` 作成、`versions.tf`（**required_version** と **required_providers** のバージョン制約を記載。例: `required_version = ">= 1.5.0"`、`aws = "~> 5.0"`）、`envs/min` と `envs/dev` の `backend.tf`（S3 + DynamoDB）、`.gitignore`（**.terraform.lock.hcl は除外せずコミット**）。`terraform init` 後に生成される `.terraform.lock.hcl` をリポジトリに含める
-2. **VPC**: `modules/vpc` を作成（プライベート/パブリックサブネット、SG 最小権限。本番向けに VPC エンドポイント用のサブネット/ルートも検討）し、`envs/min` または `envs/dev` の `main.tf` から呼び出して `plan` / `apply` で検証
+1. **infra の骨組み**: `infra/` 作成、`versions.tf`（**required_version** と **required_providers** のバージョン制約を記載。例: `required_version = ">= 1.5.0"`、`aws = "~> 5.0"`）、`envs/dev` と `envs/stg` の `backend.tf`（S3 + DynamoDB）、`.gitignore`（**.terraform.lock.hcl は除外せずコミット**）。`terraform init` 後に生成される `.terraform.lock.hcl` をリポジトリに含める
+2. **VPC**: `modules/vpc` を作成（プライベート/パブリックサブネット、SG 最小権限。本番向けに VPC エンドポイント用のサブネット/ルートも検討）し、`envs/dev` または `envs/stg` の `main.tf` から呼び出して `plan` / `apply` で検証
 3. **RDS + ElastiCache**: `modules/rds`（暗号化・マルチAZ・バックアップ有効）/ `modules/elasticache`（暗号化有効）を追加し、VPC 出力を参照して作成
 4. **ECS + ALB**: `modules/ecs` / `modules/alb` で FastAPI と arq worker 用サービスを定義。**バックエンド API 用 ECS は CodeDeploy 連携のブルー/グリーン**とし、ALB に blue/green 用 2 ターゲットグループを用意して連携。**想定外アクセス対応**のため、FastAPI 用 ECS に Application Auto Scaling（Target Tracking）を設定し、最小・最大タスク数を tfvars で指定する
 5. **S3**: `modules/s3` でバケットを定義（SSE・バージョニング有効）。アプリ用に加え、**フロントエンド配信用**のバケット（またはプレフィックス）を用意し、CloudFront のオリジンとする。アプリの既存パス設計に合わせる
-6. **ドメイン・証明書**: `modules/route53` で環境別サブドメイン（api-min / api-dev / api-stg / api 等）のレコードを定義。`modules/acm` で ALB および CloudFront 用の TLS 証明書を発行・DNS 検証
+6. **ドメイン・証明書**: `modules/route53` で環境別サブドメイン（api-dev / api-stg / api 等）のレコードを定義。`modules/acm` で ALB および CloudFront 用の TLS 証明書を発行・DNS 検証
 7. **CloudFront**: `modules/cloudfront` で**フロント用**（オリジン S3）と**API 用**（オリジン ALB）のディストリビューションを定義。既存の `CDN_DOMAIN` 等と整合し、Route53 のドメインと ACM 証明書を紐付ける
 8. **Batch**: `modules/batch` で job queue / job definition を定義し、[aws_caller.py](server/fastapi/app/jobs/caller/aws_caller.py) の `__aws_batch_queue` / `__aws_batch_job_definition` が参照する名前と一致させる
 9. **SES + SQS**: `modules/ses` で送信ドメイン・設定を定義し、`modules/sqs` でメーラー用キュー（および必要なら LINE 用）を定義
 10. **監視**: `modules/monitoring` で CloudWatch アラーム（ALB 5xx、ECS CPU、RDS 接続数・CPU）と SNS トピックを定義し、想定外のアクセス集中や障害を検知できるようにする
 11. **CD**: `modules/cicd` で ECR と GitHub OIDC 用 IAM ロールを定義。**バックエンド**はブルー/グリーン（CodeDeploy）のため、`modules/ecs` で CodeDeploy 連携とデプロイグループを定義し、IAM に CodeDeploy デプロイ権限を追加。**フロント**は S3 + CloudFront のため、IAM に S3 書き込み・CloudFront CreateInvalidation 権限を追加。`.github/workflows/` にバックエンド用 deploy とフロント用 deploy（ビルド → S3 アップロード → invalidation）を追加
-12. **min**: `envs/min` を追加。最低限の動作のため **worker（ECR）・Batch・SQS は含めず**、VPC / RDS / ElastiCache / S3 / ECR（API・frontend）のみ。サイズ系変数は最小値、共通タグと deploy ワークフローを用意する。
+12. **dev**: `envs/dev` で開発用フルスタックを構築。最低限の動作のため **worker（ECR）・Batch・SQS は含めず**、VPC / RDS / ElastiCache / S3 / ECR（API・frontend）のみ。サイズ系変数は最小値、共通タグと deploy ワークフローを用意する。
 13. **stg / prod**: `envs/stg` / `envs/prod` を追加し、backend と tfvars のみ環境差にし、モジュールは共通利用
 
 ---

@@ -4,7 +4,7 @@ FastAPI（API）および arq worker を AWS にデプロイする手順です�
 
 ## 前提条件
 
-- **Terraform 適用済み**: 対象環境で `terraform apply` が完了しており、ECR リポジトリ（API）が存在すること。**min 環境では worker 用 ECR は作成されない**。
+- **Terraform 適用済み**: 対象環境で `terraform apply` が完了しており、ECR リポジトリ（API）が存在すること。**dev 環境では worker 用 ECR は作成されない**。
 - **AWS 認証**: `aws configure` または環境変数で AWS 認証が済んでいること（`aws sts get-caller-identity` で確認）。
 - **リポジトリ**: アプリ（hbp-cc）のルートで作業する想定。インフラ（hbp-cc-infra）は接続情報取得用に参照する。
 
@@ -15,17 +15,17 @@ FastAPI（API）および arq worker を AWS にデプロイする手順です�
 対象環境の Terraform を適用したディレクトリで output を取得します。
 
 ```bash
-# 例: min 環境
-cd hbp-cc-infra/envs/min
+# 例: dev 環境
+cd hbp-cc-infra/envs/dev
 terraform output
 ```
 
-次の値を控えます（例は min の場合）。
+次の値を控えます（例は dev の場合）。
 
 | output 名 | 用途 |
 |-----------|------|
-| `ecr_api_url` | API イメージの push 先 URL（例: `015432574254.dkr.ecr.ap-northeast-1.amazonaws.com/hbp-cc-min-api`） |
-| `ecr_worker_url` | Worker イメージの push 先 URL（**min では null**。dev/stg/prod のみ利用） |
+| `ecr_api_url` | API イメージの push 先 URL（例: `015432574254.dkr.ecr.ap-northeast-1.amazonaws.com/hbp-cc-dev-api`） |
+| `ecr_worker_url` | Worker イメージの push 先 URL（**dev では null**。stg/prod のみ利用） |
 
 リージョンは `terraform.tfvars` の `aws_region`（既定: `ap-northeast-1`）に従います。
 
@@ -48,7 +48,7 @@ aws ecr get-login-password --region ap-northeast-1 | \
 
 ```bash
 # リポジトリルート（hbp-cc/）で
-export ECR_API_URL="<ecr_api_url の値>"   # 例: 015432574254.dkr.ecr.ap-northeast-1.amazonaws.com/hbp-cc-min-api
+export ECR_API_URL="<ecr_api_url の値>"   # 例: 015432574254.dkr.ecr.ap-northeast-1.amazonaws.com/hbp-cc-dev-api
 export IMAGE_TAG="latest"   # または git commit SHA など
 
 # ビルド
@@ -63,9 +63,9 @@ docker push ${ECR_API_URL}:${IMAGE_TAG}
 
 ---
 
-## 4. Worker イメージをビルドして ECR に push する（min では不要）
+## 4. Worker イメージをビルドして ECR に push する（dev では不要）
 
-**min 環境では worker 用 ECR を作成していないため、この手順はスキップしてください。** dev / stg / prod で worker をデプロイする場合のみ実行します。
+**dev 環境では worker 用 ECR を作成していないため、この手順はスキップしてください。** stg / prod で worker をデプロイする場合のみ実行します。
 
 Worker は API と同じ Dockerfile でビルドし、タスク定義側でコマンド（例: arq 起動）を差し替える運用を想定しています。別 Dockerfile がある場合はそのパスに読み替えてください。
 
@@ -117,7 +117,7 @@ CI/CD では次の流れを想定しています。
 3. **ECR push**: 上記と同じ手順を workflow 内で実行（`ecr_api_url` / `ecr_worker_url` は Terraform output または Secrets に格納）。
 4. **ECS 更新**: 新タスク定義リビジョン登録 → サービスの強制新デプロイ、または CodeDeploy でブルー/グリーンデプロイ。
 
-ワークフロー例は `deploy-min.yml` / `deploy-dev.yml` 等を用意し、トリガー条件を環境ごとに分ける想定です。OIDC と ECR 用 IAM は `modules/cicd` で管理します。
+ワークフローは `deploy-backend.yml` でブランチ（development / staging / production）ごとにトリガーし、ブランチ名を dev/stg/prod にマッピングして ECR・ECS 名に使用します。OIDC と ECR 用 IAM は `modules/cicd` で管理します。
 
 ---
 
@@ -126,5 +126,5 @@ CI/CD では次の流れを想定しています。
 - [ ] 対象環境の `terraform output` で ECR URL を確認した
 - [ ] `aws ecr get-login-password` で ECR にログインした
 - [ ] API イメージをビルドし、正しい ECR リポジトリ・タグで push した
-- [ ] （min 以外で worker を運用している場合）Worker イメージも push した
+- [ ] （dev 以外で worker を運用している場合）Worker イメージも push した
 - [ ] （ECS 利用時）タスク定義を新イメージで更新し、サービスを新デプロイした
