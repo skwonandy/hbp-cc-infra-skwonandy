@@ -119,25 +119,26 @@ resource "aws_lb_listener" "http" {
   tags = var.tags
 }
 
-# green TG を ALB に紐付けるため、マッチしない条件のルールで forward を追加（CodeDeploy 用。通常トラフィックは default の blue へ）
-# 注意: この rule は CodeDeploy blue/green deployment と競合するため、一時的に無効化
-# resource "aws_lb_listener_rule" "green_placeholder" {
-#   listener_arn = aws_lb_listener.http.arn
-#   priority     = 1
-#
-#   action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.green.arn
-#   }
-#
-#   condition {
-#     host_header {
-#       values = ["codedeploy-green-placeholder.invalid"]
-#     }
-#   }
-#
-#   tags = var.tags
-# }
+# green TG を ALB に紐付けるためのルール（ECS CreateService は blue/green 両方の TG が「リスナーに紐付いていること」を要求するため必須）。
+# 条件に存在しないホスト (codedeploy-green-placeholder.invalid) を指定しているため通常トラフィックはマッチせず default_action（blue/green のどちらか）へ流れる。
+# CodeDeploy は default_action の転送先だけを切り替えてトラフィックシフトするため、このルールは CodeDeploy の挙動と競合しない。
+resource "aws_lb_listener_rule" "green_placeholder" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 1
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.green.arn
+  }
+
+  condition {
+    host_header {
+      values = ["codedeploy-green-placeholder.invalid"]
+    }
+  }
+
+  tags = var.tags
+}
 
 # 443 は acm_certificate_arn が指定されているときのみ
 resource "aws_lb_listener" "https" {
