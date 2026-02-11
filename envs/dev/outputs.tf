@@ -1,5 +1,5 @@
 output "terraform_caller_arn" {
-  description = "Terraform 実行時の IAM identity（SSM 403 時はこれが janscore か確認）"
+  description = "Terraform 実行時の IAM identity"
   value       = data.aws_caller_identity.current.arn
 }
 
