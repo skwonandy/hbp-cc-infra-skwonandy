@@ -109,6 +109,22 @@ cd envs/dev && terraform output github_actions_deploy_role_arn
 
 **処理の流れ**: ECR ログイン → API イメージをビルド（`server/fastapi/Dockerfile`）→ ECR へ push（`hbp-cc-<env>-api`）→ **ECS ワンショットタスクで `alembic upgrade head` を実行（マイグレーション）** → 既存 ECS タスク定義を取得して新イメージで新リビジョン登録 → ECS サービスを新タスク定義で更新（Rolling デプロイ）。
 
+### Step 3 のあと（任意）: 初回 DB シード（make seed）
+
+dev などで開発用データ（組織・ユーザー・患者・管理者）を投入したい場合は、**SSM で ECS にログイン**し、コンテナ内で `make seed` を実行する。API イメージには `_bin/seed.py` および `_bin/seed_data/` が含まれている。
+
+1. [SSM で ECS にログイン（ECS Exec）](#ssm-で-ecs-にログインecs-exec) の手順でコンテナに入る。
+2. コンテナ内で以下を実行する。
+
+```bash
+make seed
+```
+
+- 組織・ユーザー・患者・管理者が投入される。
+- **初期ログインユーザ**: メール `user@momo.com` / パスワード `Password12`
+
+終了したら `exit` でシェルを抜ける。
+
 ### Step 4: 初回フロントエンドデプロイ
 
 **トリガー**
@@ -219,6 +235,37 @@ cd envs/dev && terraform destroy
 AccessDeniedException: User: arn:aws:iam::ACCOUNT:user/USERNAME is not authorized to perform: ssm:PutParameter on resource: arn:aws:ssm:REGION:ACCOUNT:parameter/hbp-cc/dev/...
 ```
 
+### SSM で ECS にログイン（ECS Exec）
+
+ECS サービスでは `enable_execute_command = true` により **ECS Exec**（SSM Session Manager）が有効です。実行中の API タスクにインタラクティブシェルで入りたいときに使います。
+
+**前提**
+
+- AWS CLI の Session Manager プラグインが入っていること（[インストール手順](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)）
+- 利用する IAM ユーザー/ロールに **ecs:ExecuteCommand**, **ecs:DescribeTasks**, **ecs:ListTasks** および **ssmmessages** 系（CreateControlChannel, CreateDataChannel, OpenControlChannel, OpenDataChannel）の権限があること。Terraform 実行用ロール（`assume-terraform-role.sh`）にはこれらが含まれています。
+
+**手順（例: dev）**
+
+```bash
+# 1. 対象環境の認証（Terraform ロールを assume する場合）
+eval $(./scripts/assume-terraform-role.sh dev)
+
+# 2. クラスタ名・サービス名を取得（任意。以下は dev の例）
+cd envs/dev
+CLUSTER=$(terraform output -raw ecs_cluster_name)   # 例: hbp-cc-dev-cluster
+SERVICE=$(terraform output -raw ecs_service_name)   # 例: hbp-cc-dev-api
+
+# 3. 実行中タスクの ID を 1 件取得
+TASK_ARN=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" --desired-status RUNNING --query 'taskArns[0]' --output text --region ap-northeast-1)
+TASK_ID="${TASK_ARN##*/}"
+
+echo $CLUSTER && echo $SERVICE && echo $TASK_ARN && echo $TASK_ID
+
+# 4. コンテナへインタラクティブシェルで接続（コンテナ名は api）
+aws ecs execute-command --cluster "$CLUSTER" --task "$TASK_ID" --container api --interactive --command "/bin/sh" --region ap-northeast-1
+```
+
+接続後はそのタスクのコンテナ内でシェル操作ができます。終了する場合は `exit` で抜けてください。
 
 ### RDS マスターパスワード（SSM のみ）
 
