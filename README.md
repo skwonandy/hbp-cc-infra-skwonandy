@@ -86,7 +86,7 @@ terraform plan
 terraform apply
 ```
 
-**作成される主なリソース**: VPC, RDS, ElastiCache, S3（アプリ用・フロント用）, ECR（API 用）, ALB, ECS クラスタ・タスク定義・サービス（CodeDeploy ブルー/グリーン）, CloudFront, SSM パラメータ（`/hbp-cc/<env>/api-base-url`, `/hbp-cc/<env>/service-url`）, GitHub Actions 用 IAM ロール（OIDC）。
+**作成される主なリソース**: VPC, RDS, ElastiCache, S3（アプリ用・フロント用）, ECR（API 用）, ALB, ECS クラスタ・タスク定義・サービス（CodeDeploy ブルー/グリーン）, CloudFront（フロント用・API 用 HTTPS 配信）, SSM パラメータ（`/hbp-cc/<env>/api-base-url` は HTTPS・`/hbp-cc/<env>/service-url`）, GitHub Actions 用 IAM ロール（OIDC）。
 
 **重要**: apply 後にデプロイ用ロール ARN を取得し、Step 2 で GitHub に登録する。
 

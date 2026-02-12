@@ -171,6 +171,15 @@ module "cloudfront" {
   tags                                = var.tags
 }
 
+module "cloudfront_api" {
+  source = "../../modules/cloudfront-api"
+
+  env          = var.env
+  project_name = var.project_name
+  alb_dns_name  = module.alb.alb_dns_name
+  tags         = var.tags
+}
+
 # SES: domain または ses_sender_email のいずれかを指定した場合のみ作成
 module "ses" {
   source = "../../modules/ses"
@@ -183,12 +192,12 @@ module "ses" {
   tags         = var.tags
 }
 
-# フロントエンドビルド時に API のベース URL を参照するため（GitHub Actions が SSM から取得）
+# フロントエンドビルド時に API のベース URL を参照するため（GitHub Actions が SSM から取得）。HTTPS は API 用 CloudFront 経由。
 resource "aws_ssm_parameter" "api_base_url" {
   name        = "/hbp-cc/${var.env}/api-base-url"
-  description = "API base URL for frontend build (e.g. ALB URL + /api)"
+  description = "API base URL for frontend build (HTTPS via API CloudFront)"
   type        = "String"
-  value       = "http://${module.alb.alb_dns_name}/api"
+  value       = "${module.cloudfront_api.cloudfront_url}/api"
   overwrite   = true
 }
 
