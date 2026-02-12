@@ -22,3 +22,18 @@ output "frontend_bucket_regional_domain_name" {
   description = "Frontend S3 bucket regional domain name (CloudFront origin)"
   value       = aws_s3_bucket.frontend.bucket_regional_domain_name
 }
+
+output "resources_bucket_id" {
+  description = "Resources S3 bucket ID (frontend-accessible assets: images, files)"
+  value       = aws_s3_bucket.resources.id
+}
+
+output "resources_bucket_arn" {
+  description = "Resources S3 bucket ARN"
+  value       = aws_s3_bucket.resources.arn
+}
+
+output "resources_bucket_regional_domain_name" {
+  description = "Resources S3 bucket regional domain name (e.g. for CloudFront origin)"
+  value       = aws_s3_bucket.resources.bucket_regional_domain_name
+}

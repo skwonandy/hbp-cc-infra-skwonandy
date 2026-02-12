@@ -201,7 +201,7 @@ resource "aws_ssm_parameter" "service_url" {
   overwrite   = true
 }
 
-# Terraform 実行用ロール（案 A: assume 運用）。allow_assume_principal_arns を設定するとロールが作成され、指定した IAM ユーザー/ロールのみが assume 可能。
+# Terraform 実行用ロール（assume 運用）。allow_assume_principal_arns を設定するとロールが作成され、指定した IAM ユーザー/ロールのみが assume 可能。
 module "terraform_runner_policy" {
   source = "../../modules/terraform-runner-policy"
 

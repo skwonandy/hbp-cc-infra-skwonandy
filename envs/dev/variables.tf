@@ -168,7 +168,7 @@ variable "ses_sender_email" {
   description = "SES で検証する送信元メールアドレス（dev/sandbox ではこの 1 件を検証して送信に使用）"
 }
 
-# Terraform 実行用ロール（案 A）を assume してよい IAM ユーザーまたはロールの ARN のリスト。空の場合はポリシーのみ作成しロールは作らない。
+# Terraform 実行用ロールを assume してよい IAM ユーザーまたはロールの ARN のリスト。空の場合はポリシーのみ作成しロールは作らない。
 variable "terraform_runner_allow_assume_principal_arns" {
   description = "IAM user or role ARNs allowed to assume the Terraform runner role. Empty = policy only, no role."
   type        = list(string)

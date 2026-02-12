@@ -158,7 +158,7 @@ cd envs/dev && terraform output github_actions_deploy_role_arn
 
 開発初期や検証では、上記をまとめて付与するために **PowerUserAccess** に IAM のみ追加で付与する運用もよく使われます。本番では、リソースの ARN を制限したカスタムポリシーに絞ることを推奨します。
 
-### Terraform 実行用ロール（案 A: assume 運用）
+### Terraform 実行用ロール（assume 運用）
 
 ARN 制限付きのポリシーと **Terraform 実行用ロール** は [modules/terraform-runner-policy](modules/terraform-runner-policy) で定義されています。環境（dev / stg / prod）ごとに、その環境のリソースにのみ権限が限定されたロールが作成されます。
 

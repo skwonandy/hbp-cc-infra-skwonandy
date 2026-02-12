@@ -1,4 +1,4 @@
-# dev 環境（旧 min 相当のフルスタック）
+# dev 環境
 env          = "dev"
 aws_region   = "ap-northeast-1"
 # RDS の DB サブネットグループは最低 2 AZ 必要なため 2 に設定
