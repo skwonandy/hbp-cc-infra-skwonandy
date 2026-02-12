@@ -86,7 +86,7 @@ terraform plan
 terraform apply
 ```
 
-**作成される主なリソース**: VPC, RDS, ElastiCache, S3（アプリ用・フロント用）, ECR（API 用）, ALB, ECS クラスタ・タスク定義・サービス（CodeDeploy ブルー/グリーン）, CloudFront（フロント用・API 用 HTTPS 配信）, SSM パラメータ（`/hbp-cc/<env>/api-base-url` は HTTPS・`/hbp-cc/<env>/service-url`）, GitHub Actions 用 IAM ロール（OIDC）。
+**作成される主なリソース**: VPC, RDS, ElastiCache, S3（アプリ用・フロント用）, ECR（API 用）, ALB, ECS クラスタ・タスク定義・サービス（Rolling デプロイ）, CloudFront（フロント用・API 用 HTTPS 配信）, SSM パラメータ（`/hbp-cc/<env>/api-base-url` は HTTPS・`/hbp-cc/<env>/service-url`）, GitHub Actions 用 IAM ロール（OIDC）。
 
 **重要**: apply 後にデプロイ用ロール ARN を取得し、Step 2 で GitHub に登録する。
 
@@ -107,7 +107,7 @@ cd envs/dev && terraform output github_actions_deploy_role_arn
 - **push**: `development` / `staging` / `production` のいずれかへ `server/**` の変更を push する。
 - **手動**: Actions → "Deploy Backend" → "Run workflow" で対象（development / staging / production）を選択する。「Use workflow from」のブランチは選択した環境と一致させること（workflow の Validate でチェックされる）。
 
-**処理の流れ**: ECR ログイン → API イメージをビルド（`server/fastapi/Dockerfile`）→ ECR へ push（`hbp-cc-<env>-api`）→ **ECS ワンショットタスクで `alembic upgrade head` を実行（マイグレーション）** → 既存 ECS タスク定義を取得して新イメージで新リビジョン登録 → CodeDeploy でブルー/グリーンデプロイ。
+**処理の流れ**: ECR ログイン → API イメージをビルド（`server/fastapi/Dockerfile`）→ ECR へ push（`hbp-cc-<env>-api`）→ **ECS ワンショットタスクで `alembic upgrade head` を実行（マイグレーション）** → 既存 ECS タスク定義を取得して新イメージで新リビジョン登録 → ECS サービスを新タスク定義で更新（Rolling デプロイ）。
 
 ### Step 4: 初回フロントエンドデプロイ
 
@@ -145,11 +145,10 @@ cd envs/dev && terraform output github_actions_deploy_role_arn
 | **RDS** | DB サブネットグループ・DB インスタンス | CreateDBSubnetGroup, CreateDBInstance, Describe*, Delete*, Modify* など |
 | **ElastiCache** | キャッシュサブネットグループ・Redis クラスタ | CreateCacheSubnetGroup, CreateCacheCluster, Describe*, Delete*, Modify* など |
 | **S3** | アプリ用・フロントエンド用バケット（バージョニング・暗号化・パブリックアクセスブロック・バケットポリシー） | CreateBucket, PutBucket*, GetBucket*, DeleteBucket など |
-| **IAM** | GitHub OIDC プロバイダ・デプロイ用ロール・ECS タスク実行ロール・タスクロール・CodeDeploy ロール・ポリシー | CreateOpenIDConnectProvider, CreateRole, CreatePolicy, PutRolePolicy, AttachRolePolicy, GetRole, GetPolicy など |
+| **IAM** | GitHub OIDC プロバイダ・デプロイ用ロール・ECS タスク実行ロール・タスクロール・ポリシー | CreateOpenIDConnectProvider, CreateRole, CreatePolicy, PutRolePolicy, AttachRolePolicy, GetRole, GetPolicy など |
 | **ECR** | API・Worker 用リポジトリ | CreateRepository, PutLifecyclePolicy, GetAuthorizationToken など |
 | **Elastic Load Balancing** | ALB・ターゲットグループ・リスナー・リスナールール | CreateLoadBalancer, CreateTargetGroup, CreateListener, CreateRule, Describe*, Delete*, Modify* など |
 | **ECS** | クラスタ・タスク定義・サービス | CreateCluster, RegisterTaskDefinition, CreateService, Describe*, Update*, Delete* など |
-| **CodeDeploy** | ECS 用アプリケーション・デプロイメントグループ | CreateApplication, CreateDeploymentGroup, GetDeploymentGroup など |
 | **CloudWatch Logs** | ECS API 用ロググループ | CreateLogGroup, PutRetentionPolicy, DescribeLogGroups, DeleteLogGroup など |
 | **CloudFront** | 配信・Origin Access Control | CreateDistribution, CreateOriginAccessControl, Get*, Update*, Delete* など |
 | **SSM Parameter Store** | RDS パスワードの参照（data）・api-base-url / service-url の作成 | GetParameter, PutParameter, DeleteParameter, AddTagsToResource（詳細は下記） |

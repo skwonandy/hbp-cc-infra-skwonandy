@@ -80,16 +80,6 @@ output "ecs_service_name" {
   value       = module.ecs.ecs_service_name
 }
 
-output "codedeploy_app_name" {
-  description = "CodeDeploy application name"
-  value       = module.ecs.codedeploy_app_name
-}
-
-output "codedeploy_deployment_group_name" {
-  description = "CodeDeploy deployment group name"
-  value       = module.ecs.codedeploy_deployment_group_name
-}
-
 output "terraform_runner_policy_arn" {
   description = "ARN of the Terraform runner policy (scoped to this env)"
   value       = module.terraform_runner_policy.policy_arn

@@ -4,7 +4,7 @@ output "alb_id" {
 }
 
 output "alb_arn" {
-  description = "ALB ARN (for CodeDeploy)"
+  description = "ALB ARN"
   value       = aws_lb.main.arn
 }
 
@@ -24,7 +24,7 @@ output "alb_security_group_id" {
 }
 
 output "listener_arn" {
-  description = "HTTP listener ARN (CodeDeploy uses this to switch blue/green)"
+  description = "HTTP listener ARN"
   value       = aws_lb_listener.http.arn
 }
 
@@ -33,22 +33,12 @@ output "listener_https_arn" {
   value       = length(aws_lb_listener.https) > 0 ? aws_lb_listener.https[0].arn : null
 }
 
-output "target_group_blue_arn" {
-  description = "Blue target group ARN"
-  value       = aws_lb_target_group.blue.arn
+output "target_group_arn" {
+  description = "API target group ARN (for ECS service)"
+  value       = aws_lb_target_group.api.arn
 }
 
-output "target_group_green_arn" {
-  description = "Green target group ARN"
-  value       = aws_lb_target_group.green.arn
-}
-
-output "target_group_blue_name" {
-  description = "Blue target group name (for CodeDeploy)"
-  value       = aws_lb_target_group.blue.name
-}
-
-output "target_group_green_name" {
-  description = "Green target group name (for CodeDeploy)"
-  value       = aws_lb_target_group.green.name
+output "target_group_name" {
+  description = "API target group name"
+  value       = aws_lb_target_group.api.name
 }

@@ -1,4 +1,4 @@
-# ECS クラスタ、FastAPI 用サービス。CodeDeploy ブルー/グリーン、ECS Exec 任意。
+# ECS クラスタ、FastAPI 用サービス。Rolling デプロイ、ECS Exec 任意。
 
 locals {
   name_prefix     = "${var.project_name}-${var.env}"
@@ -266,17 +266,13 @@ resource "aws_ecs_task_definition" "api" {
   tags = var.tags
 }
 
-# --- ECS サービス（CodeDeploy ブルー/グリーン）---
+# --- ECS サービス（Rolling デプロイ）---
 resource "aws_ecs_service" "api" {
   name            = "${local.name_prefix}-api"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api.arn
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
-
-  deployment_controller {
-    type = "CODE_DEPLOY"
-  }
 
   network_configuration {
     subnets          = var.private_subnet_ids
@@ -287,13 +283,7 @@ resource "aws_ecs_service" "api" {
   load_balancer {
     container_name   = local.container_name
     container_port   = local.container_port
-    target_group_arn = var.target_group_green_arn
-  }
-
-  load_balancer {
-    container_name   = local.container_name
-    container_port   = local.container_port
-    target_group_arn = var.target_group_blue_arn
+    target_group_arn = var.target_group_arn
   }
 
   health_check_grace_period_seconds = var.health_check_grace_period_seconds
@@ -302,83 +292,8 @@ resource "aws_ecs_service" "api" {
 
   tags = var.tags
 
-  # CodeDeploy がタスク定義と load_balancer を管理するため、Terraform では更新しない
+  # タスク定義は CI で更新するため Terraform では更新しない
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition]
   }
-}
-
-# --- CodeDeploy Application（ECS）---
-resource "aws_codedeploy_app" "ecs" {
-  name             = "${local.name_prefix}-api"
-  compute_platform = "ECS"
-
-  tags = var.tags
-}
-
-# --- CodeDeploy が ECS/ELB を操作するための IAM ロール ---
-resource "aws_iam_role" "codedeploy" {
-  name = "${local.name_prefix}-codedeploy"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = { Service = "codedeploy.amazonaws.com" }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-
-  tags = var.tags
-}
-
-resource "aws_iam_role_policy_attachment" "codedeploy" {
-  role       = aws_iam_role.codedeploy.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
-}
-
-# --- CodeDeploy Deployment Group ---
-resource "aws_codedeploy_deployment_group" "api" {
-  app_name               = aws_codedeploy_app.ecs.name
-  deployment_group_name   = "${local.name_prefix}-api-dg"
-  service_role_arn        = aws_iam_role.codedeploy.arn
-  deployment_config_name  = var.codedeploy_deployment_config_name
-
-  ecs_service {
-    cluster_name = aws_ecs_cluster.main.name
-    service_name = aws_ecs_service.api.name
-  }
-
-  load_balancer_info {
-    target_group_pair_info {
-      prod_traffic_route {
-        listener_arns = [var.alb_listener_arn]
-      }
-      target_group {
-        name = var.target_group_blue_name
-      }
-      target_group {
-        name = var.target_group_green_name
-      }
-    }
-  }
-
-  deployment_style {
-    deployment_option = "WITH_TRAFFIC_CONTROL"
-    deployment_type   = "BLUE_GREEN"
-  }
-
-  blue_green_deployment_config {
-    deployment_ready_option {
-      action_on_timeout = "CONTINUE_DEPLOYMENT"
-    }
-    terminate_blue_instances_on_deployment_success {
-      action                           = "TERMINATE"
-      termination_wait_time_in_minutes = var.blue_termination_wait_minutes
-    }
-  }
-
-  tags = var.tags
 }

@@ -364,7 +364,7 @@ resource "aws_iam_policy" "runner_core" {
 
 resource "aws_iam_policy" "runner_app" {
   name        = "${local.prefix}-terraform-runner-app"
-  description = "Terraform runner app (${var.env}): ELB, ECS, CodeDeploy, Logs, CloudFront, SES"
+  description = "Terraform runner app (${var.env}): ELB, ECS, Logs, CloudFront, SES"
   policy      = data.aws_iam_policy_document.runner_app.json
   tags        = var.tags
 }

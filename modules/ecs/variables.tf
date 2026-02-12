@@ -18,13 +18,9 @@ variable "alb_security_group_id" {
   type        = string
   description = "ALB SG (for ECS ingress from ALB)"
 }
-variable "target_group_blue_arn" { type = string }
-variable "target_group_green_arn" { type = string }
-variable "target_group_blue_name" { type = string }
-variable "target_group_green_name" { type = string }
-variable "alb_listener_arn" {
+variable "target_group_arn" {
   type        = string
-  description = "ALB listener ARN (CodeDeploy switches traffic)"
+  description = "ALB target group ARN (for ECS service)"
 }
 
 variable "ecr_api_repository_url" { type = string }
@@ -123,14 +119,6 @@ variable "log_retention_days" {
 variable "enable_execute_command" {
   type    = bool
   default = false
-}
-variable "codedeploy_deployment_config_name" {
-  type    = string
-  default = "CodeDeployDefault.ECSAllAtOnce"
-}
-variable "blue_termination_wait_minutes" {
-  type    = number
-  default = 5
 }
 variable "health_check_grace_period_seconds" {
   type        = number

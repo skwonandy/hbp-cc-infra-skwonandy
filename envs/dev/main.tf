@@ -104,47 +104,42 @@ module "cicd" {
 module "alb" {
   source = "../../modules/alb"
 
-  env                           = var.env
-  project_name                  = var.project_name
-  vpc_id                        = module.vpc.vpc_id
-  public_subnet_ids             = module.vpc.public_subnet_ids
-  tags                          = var.tags
-  acm_certificate_arn            = var.alb_acm_certificate_arn
-  listener_default_target_group  = var.alb_listener_default_target_group
+  env                  = var.env
+  project_name         = var.project_name
+  vpc_id               = module.vpc.vpc_id
+  public_subnet_ids    = module.vpc.public_subnet_ids
+  tags                 = var.tags
+  acm_certificate_arn  = var.alb_acm_certificate_arn
 }
 
 module "ecs" {
   source = "../../modules/ecs"
 
-  env                          = var.env
-  project_name                 = var.project_name
-  vpc_id                       = module.vpc.vpc_id
-  private_subnet_ids           = module.vpc.private_subnet_ids
-  internal_security_group_id   = module.vpc.internal_security_group_id
-  alb_security_group_id        = module.alb.alb_security_group_id
-  target_group_blue_arn        = module.alb.target_group_blue_arn
-  target_group_green_arn       = module.alb.target_group_green_arn
-  target_group_blue_name       = module.alb.target_group_blue_name
-  target_group_green_name      = module.alb.target_group_green_name
-  alb_listener_arn             = module.alb.listener_arn
-  ecr_api_repository_url       = module.cicd.ecr_api_url
-  db_host                      = module.rds.db_instance_address
-  db_host_replications         = "[\"${module.rds.db_instance_address}\"]"
-  db_name                      = "main"
-  db_user                      = "postgres"
-  db_password_plain            = local.rds_password
-  db_password_secret_arn       = ""
-  redis_host                   = module.elasticache.redis_host
-  s3_app_bucket                = module.s3.app_bucket_id
-  aws_region                   = var.aws_region
-  service_url                  = module.cloudfront.cloudfront_url
-  use_service_url_ssm          = true
-  service_url_ssm_arn          = aws_ssm_parameter.service_url.arn
-  app_env                      = "dev"
-  sentry_dsn                   = ""
-  attach_ses_policy            = true
-  ses_identity_arns            = try(module.ses[0].identity_arns, [])
-  api_extra_environment        = [
+  env                        = var.env
+  project_name               = var.project_name
+  vpc_id                     = module.vpc.vpc_id
+  private_subnet_ids         = module.vpc.private_subnet_ids
+  internal_security_group_id = module.vpc.internal_security_group_id
+  alb_security_group_id      = module.alb.alb_security_group_id
+  target_group_arn           = module.alb.target_group_arn
+  ecr_api_repository_url     = module.cicd.ecr_api_url
+  db_host                    = module.rds.db_instance_address
+  db_host_replications       = "[\"${module.rds.db_instance_address}\"]"
+  db_name                    = "main"
+  db_user                    = "postgres"
+  db_password_plain          = local.rds_password
+  db_password_secret_arn     = ""
+  redis_host                 = module.elasticache.redis_host
+  s3_app_bucket              = module.s3.app_bucket_id
+  aws_region                 = var.aws_region
+  service_url                = module.cloudfront.cloudfront_url
+  use_service_url_ssm        = true
+  service_url_ssm_arn        = aws_ssm_parameter.service_url.arn
+  app_env                    = "dev"
+  sentry_dsn                 = ""
+  attach_ses_policy          = true
+  ses_identity_arns          = try(module.ses[0].identity_arns, [])
+  api_extra_environment     = [
     { name = "HBP_SESSION_JWT_KEY", value = var.hbp_session_jwt_key },
     { name = "HBP_USER_INVITATION_JWT_KEY", value = var.hbp_user_invitation_jwt_key },
     { name = "HBP_JWT_EXT_KEY", value = var.hbp_jwt_ext_key },
@@ -153,12 +148,11 @@ module "ecs" {
     { name = "TOTP_ENCRYPTION_KEY", value = var.totp_encryption_key },
     { name = "HBP_JWT_ISSUER", value = var.hbp_jwt_issuer },
   ]
-  task_cpu                     = var.ecs_task_cpu
-  task_memory                  = var.ecs_task_memory
-  desired_count                = var.ecs_desired_count
-  blue_termination_wait_minutes = 1 # 開発環境: 高速デプロイのため1分に短縮
-  enable_execute_command       = true # SSM (ECS Exec) でタスクにログイン可能にする
-  tags                         = var.tags
+  task_cpu               = var.ecs_task_cpu
+  task_memory            = var.ecs_task_memory
+  desired_count          = var.ecs_desired_count
+  enable_execute_command = true # SSM (ECS Exec) でタスクにログイン可能にする
+  tags                   = var.tags
 }
 
 module "cloudfront" {

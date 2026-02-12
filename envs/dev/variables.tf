@@ -94,13 +94,6 @@ variable "alb_acm_certificate_arn" {
   default     = ""
 }
 
-# リスナー default で転送する TG。TaskSet が green のときは "green" にしないと CodeDeploy が「TaskSet is behind prod listener」で失敗する。デプロイが安定したら "blue" に戻す
-variable "alb_listener_default_target_group" {
-  description = "Listener default target group: blue or green (must match primary TaskSet's TG)"
-  type        = string
-  default     = "blue"
-}
-
 # ECS API
 variable "ecs_task_cpu" {
   description = "ECS API task CPU units (256 = 0.25 vCPU)"

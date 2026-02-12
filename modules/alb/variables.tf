@@ -45,10 +45,3 @@ variable "acm_certificate_arn" {
   default     = ""
   description = "ACM certificate ARN for HTTPS listener. Empty = HTTP only."
 }
-
-# リスナー default で転送するターゲットグループ（blue または green）。primary が green のときは "green" にすると CodeDeploy エラーを解消できる
-variable "listener_default_target_group" {
-  type        = string
-  default     = "blue"
-  description = "Which target group the listener default forwards to: blue or green."
-}

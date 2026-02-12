@@ -95,7 +95,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           ]
         },
         {
-          Sid    = "ECSForCodeDeploy"
+          Sid    = "ECSDeploy"
           Effect = "Allow"
           Action = [
             "ecs:DescribeServices",
@@ -103,6 +103,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
             "ecs:DescribeTasks",
             "ecs:ListTaskDefinitions",
             "ecs:RegisterTaskDefinition",
+            "ecs:UpdateService",
             "ecs:RunTask"
           ]
           Resource = "*"
@@ -117,22 +118,6 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
               "iam:PassedToService" = "ecs-tasks.amazonaws.com"
             }
           }
-        },
-        {
-          Sid    = "CodeDeploy"
-          Effect = "Allow"
-          Action = [
-            "codedeploy:CreateDeployment",
-            "codedeploy:GetDeployment",
-            "codedeploy:GetDeploymentConfig",
-            "codedeploy:GetApplication",
-            "codedeploy:GetApplicationRevision",
-            "codedeploy:RegisterApplicationRevision",
-            "codedeploy:GetDeploymentGroup",
-            "codedeploy:ListDeployments",
-            "codedeploy:StopDeployment"
-          ]
-          Resource = "*"
         },
         {
           Sid    = "CloudFrontInvalidation"
