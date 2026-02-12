@@ -156,7 +156,6 @@ cd envs/dev && terraform output github_actions_deploy_role_arn
 | **SES** | ドメイン・メール identity（SES モジュール有効時） | VerifyDomainIdentity, VerifyEmailIdentity, GetIdentityVerificationAttributes など |
 | **STS** | 呼び出し元 identity の取得（data） | GetCallerIdentity |
 
-開発初期や検証では、上記をまとめて付与するために **PowerUserAccess** に IAM のみ追加で付与する運用もよく使われます。本番では、リソースの ARN を制限したカスタムポリシーに絞ることを推奨します。
 
 ### Terraform 実行用ロール（assume 運用）
 
@@ -164,7 +163,7 @@ ARN 制限付きのポリシーと **Terraform 実行用ロール** は [modules
 
 **Terraform 実行者が持つ権限（2 回目以降）**: **Terraform 実行用ロールを assume する権限だけ**にしてください（PowerUserAccess は付けない）。そうすることで、Terraform を実行するには必ず assume が必要になり、assume したときのみスコープ付きの権限が使われます。
 
-- **初回のみ**: 管理者（PowerUserAccess 等を持つ別の IAM ユーザー）が対象環境で `terraform apply` を実行し、ロールを作成する。各環境の `terraform.tfvars` で `terraform_runner_allow_assume_principal_arns` に、assume を許可する IAM ユーザーまたはロールの ARN のリストを設定する。
+- **初回のみ**: 管理者（PowerUserAccess + IAMFullAccessを持つ別の IAM ユーザー）が対象環境で `terraform apply` を実行し、ロールを作成する。各環境の `terraform.tfvars` で `terraform_runner_allow_assume_principal_arns` に、assume を許可する IAM ユーザーまたはロールの ARN のリストを設定する。
 - **2 回目以降**: Terraform を実行する人は、**assume 用スクリプト**で一時クレデンシャルを取得してから `terraform plan` / `apply` を実行する。
 
 **assume の手順**（リポジトリルートで実行）:

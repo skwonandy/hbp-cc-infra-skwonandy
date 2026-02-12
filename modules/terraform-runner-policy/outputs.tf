@@ -1,6 +1,11 @@
 output "policy_arn" {
-  description = "ARN of the Terraform runner policy"
-  value       = aws_iam_policy.runner.arn
+  description = "ARN of the Terraform runner core policy (backward compat; runner has core + app attached)"
+  value       = aws_iam_policy.runner_core.arn
+}
+
+output "policy_app_arn" {
+  description = "ARN of the Terraform runner app policy"
+  value       = aws_iam_policy.runner_app.arn
 }
 
 output "role_arn" {

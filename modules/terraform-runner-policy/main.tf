@@ -9,18 +9,17 @@ locals {
   ec_scope  = "arn:aws:elasticache:${var.aws_region}:${var.account_id}:*"
 }
 
-data "aws_iam_policy_document" "runner" {
-  # STS: 呼び出し元 identity 取得
+# 単一ポリシーが AWS 制限 6144 文字を超えるため、2 つに分割（権限は同一）
+data "aws_iam_policy_document" "runner_core" {
+  # STS
   statement {
     sid    = "STS"
     effect = "Allow"
-    actions = [
-      "sts:GetCallerIdentity"
-    ]
+    actions = ["sts:GetCallerIdentity"]
     resources = ["*"]
   }
 
-  # SSM: RDS パスワード参照と api-base-url / service-url 作成
+  # SSM
   statement {
     sid    = "SSM"
     effect = "Allow"
@@ -31,12 +30,10 @@ data "aws_iam_policy_document" "runner" {
       "ssm:DeleteParameter",
       "ssm:AddTagsToResource"
     ]
-    resources = [
-      "arn:aws:ssm:${var.aws_region}:${var.account_id}:parameter/hbp-cc/${var.env}/*"
-    ]
+    resources = ["arn:aws:ssm:${var.aws_region}:${var.account_id}:parameter/hbp-cc/${var.env}/*"]
   }
 
-  # EC2: VPC, サブネット, SG, IGW, NAT, ルートテーブル, EIP（作成前は ID が不定のためリージョン・アカウントで制限）
+  # EC2
   statement {
     sid    = "EC2"
     effect = "Allow"
@@ -151,7 +148,7 @@ data "aws_iam_policy_document" "runner" {
     ]
   }
 
-  # IAM: ロール・ポリシー・OIDC プロバイダ（本プロジェクトで作成する名前のプレフィックスに制限）
+  # IAM
   statement {
     sid    = "IAM"
     effect = "Allow"
@@ -192,9 +189,7 @@ data "aws_iam_policy_document" "runner" {
   statement {
     sid    = "ECR"
     effect = "Allow"
-    actions = [
-      "ecr:GetAuthorizationToken"
-    ]
+    actions = ["ecr:GetAuthorizationToken"]
     resources = ["*"]
   }
   statement {
@@ -212,12 +207,12 @@ data "aws_iam_policy_document" "runner" {
       "ecr:UntagResource",
       "ecr:ListTagsForResource"
     ]
-    resources = [
-      "arn:aws:ecr:${var.aws_region}:${var.account_id}:repository/${local.prefix}-*"
-    ]
+    resources = ["arn:aws:ecr:${var.aws_region}:${var.account_id}:repository/${local.prefix}-*"]
   }
+}
 
-  # Elastic Load Balancing (ALB, ターゲットグループ, リスナー)
+data "aws_iam_policy_document" "runner_app" {
+  # ELB
   statement {
     sid    = "ELB"
     effect = "Allow"
@@ -272,7 +267,7 @@ data "aws_iam_policy_document" "runner" {
     resources = ["*"]
   }
 
-  # CodeDeploy (ECS)
+  # CodeDeploy
   statement {
     sid    = "CodeDeploy"
     effect = "Allow"
@@ -306,9 +301,7 @@ data "aws_iam_policy_document" "runner" {
       "logs:UntagLogGroup",
       "logs:ListTagsLogGroup"
     ]
-    resources = [
-      "arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/aws/ecs/${local.prefix}-*"
-    ]
+    resources = ["arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/aws/ecs/${local.prefix}-*"]
   }
 
   # CloudFront
@@ -332,7 +325,7 @@ data "aws_iam_policy_document" "runner" {
     resources = ["*"]
   }
 
-  # SES（オプション）
+  # SES
   statement {
     sid    = "SES"
     effect = "Allow"
@@ -348,10 +341,17 @@ data "aws_iam_policy_document" "runner" {
   }
 }
 
-resource "aws_iam_policy" "runner" {
-  name        = "${local.prefix}-terraform-runner"
-  description = "Scoped policy for Terraform runner (${var.env} environment only)"
-  policy      = data.aws_iam_policy_document.runner.json
+resource "aws_iam_policy" "runner_core" {
+  name        = "${local.prefix}-terraform-runner-core"
+  description = "Terraform runner core (${var.env}): STS, SSM, EC2, RDS, ElastiCache, S3, IAM, ECR"
+  policy      = data.aws_iam_policy_document.runner_core.json
+  tags        = var.tags
+}
+
+resource "aws_iam_policy" "runner_app" {
+  name        = "${local.prefix}-terraform-runner-app"
+  description = "Terraform runner app (${var.env}): ELB, ECS, CodeDeploy, Logs, CloudFront, SES"
+  policy      = data.aws_iam_policy_document.runner_app.json
   tags        = var.tags
 }
 
@@ -377,9 +377,16 @@ resource "aws_iam_role" "runner" {
   tags = var.tags
 }
 
-resource "aws_iam_role_policy_attachment" "runner" {
+resource "aws_iam_role_policy_attachment" "runner_core" {
   count = length(var.allow_assume_principal_arns) > 0 ? 1 : 0
 
   role       = aws_iam_role.runner[0].name
-  policy_arn = aws_iam_policy.runner.arn
+  policy_arn = aws_iam_policy.runner_core.arn
+}
+
+resource "aws_iam_role_policy_attachment" "runner_app" {
+  count = length(var.allow_assume_principal_arns) > 0 ? 1 : 0
+
+  role       = aws_iam_role.runner[0].name
+  policy_arn = aws_iam_policy.runner_app.arn
 }
