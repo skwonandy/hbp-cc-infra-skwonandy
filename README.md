@@ -175,6 +175,21 @@ cd envs/dev && terraform plan
 
 stg / prod の場合は `dev` を `stg` / `prod` に置き換えてください。スクリプトには AWS CLI と jq（または Python 3）が必要です。ロールが未作成の場合はスクリプトがエラーで終了します。
 
+**Terraform destroy 時の S3/ECR エラー対策**
+
+`terraform destroy` で S3 の `BucketNotEmpty`（バージョン付きで中身が残っている）や ECR の `RepositoryNotEmptyException` が出る場合、先にバケット・リポジトリを空にしてから destroy する。
+
+```bash
+# 必要に応じて assume
+eval $(./scripts/assume-terraform-role.sh dev)
+# dev の S3 全バケット・ECR 全リポジトリを空にする
+./scripts/empty-s3-and-ecr.sh dev
+# その後 destroy
+cd envs/dev && terraform destroy
+```
+
+対象を絞る例: `./scripts/empty-s3-and-ecr.sh dev --bucket hbp-cc-dev-frontend`（S3 のみ）、`./scripts/empty-s3-and-ecr.sh dev --ecr hbp-cc-dev-api`（ECR のみ）。`--dry-run` で削除せずに対象のみ表示。要 jq。
+
 **Terraform 実行者に付与する assume 用ポリシー例**（PowerUserAccess の代わりにこのみ付与）:
 
 ```json
