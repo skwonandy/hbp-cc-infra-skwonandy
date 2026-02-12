@@ -19,9 +19,8 @@ tags = {
 }
 
 # SES: 送信元メールアドレスを指定すると SES モジュールが作成され、ECS タスクに送信権限が付与される。
-# dev では SES サンドボックス利用を想定。指定したアドレスは AWS コンソールで検証済みにすること。
 ses_sender_email = "dev-noreply@example.com"
 
 # カスタムドメイン（両方指定時のみ有効）。空の場合は xxx.cloudfront.net のまま。
-# base_domain     = "example.com"
-# route53_zone_id = "Z0123456789ABCDEF"
+base_domain     = "skwondocs.com"
+route53_zone_id = "Z3QK1GRO4RD4HY"
