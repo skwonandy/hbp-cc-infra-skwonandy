@@ -157,6 +157,7 @@ module "ecs" {
   task_memory                  = var.ecs_task_memory
   desired_count                = var.ecs_desired_count
   blue_termination_wait_minutes = 1 # 開発環境: 高速デプロイのため1分に短縮
+  enable_execute_command       = true # SSM (ECS Exec) でタスクにログイン可能にする
   tags                         = var.tags
 }
 

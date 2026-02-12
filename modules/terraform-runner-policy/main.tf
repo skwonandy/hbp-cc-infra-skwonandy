@@ -262,7 +262,21 @@ data "aws_iam_policy_document" "runner_app" {
       "ecs:ListServices",
       "ecs:TagResource",
       "ecs:UntagResource",
-      "ecs:ListTagsForResource"
+      "ecs:ListTagsForResource",
+      "ecs:ExecuteCommand"
+    ]
+    resources = ["*"]
+  }
+
+  # ECS Exec (SSM Session Manager) - aws ecs execute-command 用
+  statement {
+    sid    = "SSMMessagesForECSExec"
+    effect = "Allow"
+    actions = [
+      "ssmmessages:CreateControlChannel",
+      "ssmmessages:CreateDataChannel",
+      "ssmmessages:OpenControlChannel",
+      "ssmmessages:OpenDataChannel"
     ]
     resources = ["*"]
   }

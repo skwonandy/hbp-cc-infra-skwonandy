@@ -144,6 +144,29 @@ resource "aws_iam_role_policy" "task_ses" {
   })
 }
 
+# enable_execute_command が true のとき、タスクロールに ECS Exec（SSM Session Manager）用の権限を付与
+resource "aws_iam_role_policy" "task_ecs_exec" {
+  count = var.enable_execute_command ? 1 : 0
+
+  name   = "ecs-exec-ssmmessages"
+  role   = aws_iam_role.task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # --- ECS 用 SG（ALB からの container_port のみ許可）---
 resource "aws_security_group" "ecs" {
   name_prefix = "${local.name_prefix}-ecs-"
