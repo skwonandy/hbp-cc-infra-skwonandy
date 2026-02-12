@@ -139,7 +139,9 @@ module "acm" {
   source = "../../modules/acm"
   count  = var.route53_zone_id != "" && var.base_domain != "" ? 1 : 0
 
-  provider = aws.us_east_1
+  providers = {
+    aws = aws.us_east_1
+  }
 
   env          = var.env
   project_name = var.project_name

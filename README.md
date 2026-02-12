@@ -20,13 +20,24 @@ hbp-cc アプリケーションの AWS インフラを Terraform で管理する
 
 **plan / apply の前に**、対象環境の RDS マスターパスワードを SSM Parameter Store に登録しておくこと（未登録だと `data "aws_ssm_parameter" "rds_password"` でエラーになる）。手順は後述の [RDS マスターパスワード（SSM のみ）](#rds-マスターパスワードssm-のみ) を参照。
 
-対象環境のディレクトリで初期化・plan・apply を実行する。
+対象環境のディレクトリで初期化・plan・apply を実行する。**リポジトリルートから Makefile を使う**こともできる。
 
 ```bash
 cd envs/dev
 terraform init
 terraform plan
 terraform apply
+```
+
+**Makefile 利用時**（リポジトリルートで）:
+
+```bash
+make help          # 利用可能なターゲット一覧
+make init          # terraform init（ENV 未指定時は dev）
+make plan          # terraform plan
+make apply         # terraform apply
+make plan ENV=stg  # stg 環境で plan
+make output VAR=github_actions_deploy_role_arn  # 特定の output のみ取得
 ```
 
 ### GitHub Actions と OIDC
@@ -195,16 +206,15 @@ stg / prod の場合は `dev` を `stg` / `prod` に置き換えてください�
 
 `terraform destroy` で S3 の `BucketNotEmpty`（バージョン付きで中身が残っている）や ECR の `RepositoryNotEmptyException` が出る場合、先にバケット・リポジトリを空にしてから destroy する。
 
+**`make destroy` で実行**（S3/ECR を空にしてから terraform destroy。リポジトリルートで）:
+
 ```bash
-# 必要に応じて assume
 eval $(./scripts/assume-terraform-role.sh dev)
-# dev の S3 全バケット・ECR 全リポジトリを空にする
-./scripts/empty-s3-and-ecr.sh dev
-# その後 destroy
-cd envs/dev && terraform destroy
+make destroy
+# 別環境: make destroy ENV=stg
 ```
 
-対象を絞る例: `./scripts/empty-s3-and-ecr.sh dev --bucket hbp-cc-dev-frontend`（S3 のみ）、`./scripts/empty-s3-and-ecr.sh dev --ecr hbp-cc-dev-api`（ECR のみ）。`--dry-run` で削除せずに対象のみ表示。要 jq。
+手動で空化のみ行う場合: `./scripts/empty-s3-and-ecr.sh dev`（`--bucket` / `--ecr` で対象絞り、`--dry-run` で対象のみ表示。要 jq）。
 
 **Terraform 実行者に付与する assume 用ポリシー例**（PowerUserAccess の代わりにこのみ付与）:
 
@@ -246,6 +256,17 @@ ECS サービスでは `enable_execute_command = true` により **ECS Exec**（
 
 **手順（例: dev）**
 
+**Makefile で一括実行**（リポジトリルートで）:
+
+```bash
+# 事前に assume 推奨
+eval $(./scripts/assume-terraform-role.sh dev)
+make ecs-exec
+# 別環境: make ecs-exec ENV=stg
+```
+
+手動で実行する場合:
+
 ```bash
 # 1. 対象環境の認証（Terraform ロールを assume する場合）
 eval $(./scripts/assume-terraform-role.sh dev)
@@ -258,8 +279,6 @@ SERVICE=$(terraform output -raw ecs_service_name)   # 例: hbp-cc-dev-api
 # 3. 実行中タスクの ID を 1 件取得
 TASK_ARN=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" --desired-status RUNNING --query 'taskArns[0]' --output text --region ap-northeast-1)
 TASK_ID="${TASK_ARN##*/}"
-
-echo $CLUSTER && echo $SERVICE && echo $TASK_ARN && echo $TASK_ID
 
 # 4. コンテナへインタラクティブシェルで接続（コンテナ名は api）
 aws ecs execute-command --cluster "$CLUSTER" --task "$TASK_ID" --container api --interactive --command "/bin/sh" --region ap-northeast-1
