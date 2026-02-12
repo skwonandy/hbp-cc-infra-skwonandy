@@ -100,8 +100,10 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           Action = [
             "ecs:DescribeServices",
             "ecs:DescribeTaskDefinition",
+            "ecs:DescribeTasks",
+            "ecs:ListTaskDefinitions",
             "ecs:RegisterTaskDefinition",
-            "ecs:ListTaskDefinitions"
+            "ecs:RunTask"
           ]
           Resource = "*"
         },
