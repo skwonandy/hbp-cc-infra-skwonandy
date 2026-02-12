@@ -61,8 +61,8 @@ output "api_url" {
 }
 
 output "frontend_url" {
-  description = "Frontend URL (CloudFront)"
-  value       = module.cloudfront.cloudfront_url
+  description = "Frontend URL (CloudFront またはカスタムドメイン)"
+  value       = local.frontend_url
 }
 
 output "cloudfront_distribution_id" {

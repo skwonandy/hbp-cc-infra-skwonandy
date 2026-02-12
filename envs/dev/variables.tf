@@ -167,3 +167,15 @@ variable "terraform_runner_allow_assume_principal_arns" {
   type        = list(string)
   default     = []
 }
+
+# カスタムドメイン（Route53 既存ゾーン + ACM + CloudFront aliases）。両方指定時のみ有効。
+variable "base_domain" {
+  description = "ベースドメイン（例: example.com）。指定時は app-<env>.<base_domain> / api-<env>.<base_domain> で配信"
+  type        = string
+  default     = ""
+}
+variable "route53_zone_id" {
+  description = "既存 Route53 ホストゾーン ID。カスタムドメインを使う場合は必須"
+  type        = string
+  default     = ""
+}

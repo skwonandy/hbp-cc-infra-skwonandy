@@ -1,9 +1,7 @@
-variable "env" { type = string }
-variable "project_name" {
-  type    = string
-  default = "hbp-cc"
+variable "zone_id" {
+  type        = string
+  description = "既存 Route53 ホストゾーンの ID"
 }
-variable "domain_name" { type = string }
 variable "tags" {
   type    = map(string)
   default = {}

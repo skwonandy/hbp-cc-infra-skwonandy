@@ -26,3 +26,15 @@ variable "price_class" {
   default     = "PriceClass_200"
   description = "CloudFront price class (PriceClass_All, PriceClass_200, PriceClass_100)"
 }
+
+variable "aliases" {
+  type        = list(string)
+  default     = []
+  description = "カスタムドメインの CNAME（例: app-dev.example.com）。空の場合は xxx.cloudfront.net のみ"
+}
+
+variable "acm_certificate_arn" {
+  type        = string
+  default     = ""
+  description = "ACM 証明書 ARN（us-east-1）。aliases を使う場合は必須"
+}

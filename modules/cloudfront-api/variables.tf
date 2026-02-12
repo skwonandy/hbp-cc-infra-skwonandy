@@ -19,3 +19,15 @@ variable "tags" {
   default     = {}
   description = "Tags for CloudFront distribution"
 }
+
+variable "aliases" {
+  type        = list(string)
+  default     = []
+  description = "カスタムドメインの CNAME（例: api-dev.example.com）。空の場合は xxx.cloudfront.net のみ"
+}
+
+variable "acm_certificate_arn" {
+  type        = string
+  default     = ""
+  description = "ACM 証明書 ARN（us-east-1）。aliases を使う場合は必須"
+}

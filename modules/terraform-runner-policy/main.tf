@@ -209,6 +209,35 @@ data "aws_iam_policy_document" "runner_core" {
     ]
     resources = ["arn:aws:ecr:${var.aws_region}:${var.account_id}:repository/${local.prefix}-*"]
   }
+
+  # Route53（カスタムドメイン: ホストゾーン参照・レコード作成）
+  statement {
+    sid    = "Route53"
+    effect = "Allow"
+    actions = [
+      "route53:GetHostedZone",
+      "route53:ListHostedZones",
+      "route53:ChangeResourceRecordSets",
+      "route53:ListResourceRecordSets",
+      "route53:GetChange"
+    ]
+    resources = ["*"]
+  }
+
+  # ACM（CloudFront 用証明書は us-east-1。Terraform が Request/Describe 等で使用）
+  statement {
+    sid    = "ACM"
+    effect = "Allow"
+    actions = [
+      "acm:RequestCertificate",
+      "acm:DescribeCertificate",
+      "acm:DeleteCertificate",
+      "acm:AddTagsToResource",
+      "acm:RemoveTagsFromResource",
+      "acm:ListTagsForCertificate"
+    ]
+    resources = ["*"]
+  }
 }
 
 data "aws_iam_policy_document" "runner_app" {
