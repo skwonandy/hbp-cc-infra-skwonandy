@@ -179,3 +179,9 @@ variable "route53_zone_id" {
   type        = string
   default     = ""
 }
+# ACM DNS 検証で既に Route53 に存在する CNAME の名前。指定したものは作成せず参照のみ（destroy で消えない）。
+variable "acm_existing_validation_record_names" {
+  type        = set(string)
+  default     = []
+  description = "既存の検証用 CNAME 名（FQDN）。指定したものは Terraform で作成しない"
+}

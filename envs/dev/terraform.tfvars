@@ -18,9 +18,12 @@ tags = {
   CostCenter  = "dev"
 }
 
-# 検証済みドメインを指定（送信元ドメイン）
-ses_domain       = "janscore.com"
+# 検証済みドメインを指定（送信元ドメイン）。空の場合は SES モジュールは作成されない。
+# janscore.com は destroy で削除したくないため Terraform 管理外とする（state rm 済み想定）。
+ses_domain       = ""
 
 # カスタムドメイン（両方指定時のみ有効）。空の場合は xxx.cloudfront.net のまま。
 base_domain     = "skwondocs.com"
 route53_zone_id = "Z3QK1GRO4RD4HY"
+# Route53 に既にある ACM 検証用 CNAME
+acm_existing_validation_record_names = ["_8b20608dc98bbd341afe22a806aeb9e9.skwondocs.com."]

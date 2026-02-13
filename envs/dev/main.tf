@@ -143,11 +143,12 @@ module "acm" {
     aws = aws.us_east_1
   }
 
-  env          = var.env
-  project_name = var.project_name
-  domain_name  = var.base_domain
-  zone_id      = module.route53[0].zone_id
-  tags         = var.tags
+  env                            = var.env
+  project_name                   = var.project_name
+  domain_name                    = var.base_domain
+  zone_id                       = module.route53[0].zone_id
+  existing_validation_record_names = var.acm_existing_validation_record_names
+  tags                           = var.tags
 }
 
 module "ecs" {
