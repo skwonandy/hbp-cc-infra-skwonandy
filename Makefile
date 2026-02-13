@@ -6,7 +6,7 @@ TF_DIR := envs/$(ENV)
 AWS_REGION ?= ap-northeast-1
 
 .DEFAULT_GOAL := help
-.PHONY: help init plan apply destroy validate fmt output ecs-exec
+.PHONY: help init plan apply apply-acm-cert destroy validate fmt output ecs-exec
 
 help:
 	@echo "Usage: make [target] [ENV=dev|stg|prod]"
@@ -14,8 +14,9 @@ help:
 	@echo "Targets:"
 	@echo "  help         - このヘルプを表示"
 	@echo "  init         - terraform init ($(TF_DIR))"
-	@echo "  plan         - terraform plan"
-	@echo "  apply        - terraform apply"
+	@echo "  plan         - terraform plan（事前に ACM 証明書を apply）"
+	@echo "  apply        - terraform apply（事前に ACM 証明書を apply）"
+	@echo "  apply-acm-cert - ACM 証明書のみ先に作成（plan/apply に統合済み、単体実行も可）"
 	@echo "  destroy      - S3/ECR を空にしてから terraform destroy"
 	@echo "  ecs-exec     - SSM で ECS タスクにログイン（インタラクティブシェル）"
 	@echo "  validate     - terraform validate"
@@ -27,11 +28,15 @@ help:
 init:
 	terraform -chdir=$(TF_DIR) init
 
-plan: init
+plan: init apply-acm-cert
 	terraform -chdir=$(TF_DIR) plan
 
-apply: init
+apply: init apply-acm-cert
 	terraform -chdir=$(TF_DIR) apply
+
+# ACM 証明書を先に作成する。証明書が無い状態だと plan で for_each が不定になりエラーになるため、plan/apply の前に自動実行される。
+apply-acm-cert: init
+	terraform -chdir=$(TF_DIR) apply -target=module.acm[0].aws_acm_certificate.main -auto-approve
 
 # SSM（ECS Exec）で実行中タスクのコンテナにログイン。Session Manager プラグイン必須。
 ecs-exec:

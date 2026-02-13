@@ -33,12 +33,13 @@ terraform apply
 
 ```bash
 make help          # 利用可能なターゲット一覧
-make init          # terraform init（ENV 未指定時は dev）
-make plan          # terraform plan
-make apply         # terraform apply
+make plan          # terraform plan（init と ACM 証明書の apply を事前に実行）
+make apply         # terraform apply（同様に init と ACM 証明書を事前に実行）
 make plan ENV=stg  # stg 環境で plan
 make output VAR=github_actions_deploy_role_arn  # 特定の output のみ取得
 ```
+
+`make plan` / `make apply` は内部で `init` と `apply-acm-cert`（ACM 証明書のみ先に適用）を自動実行するため、初回から `make plan` / `make apply` だけでよい。`make init` を単体で実行する必要はない。
 
 ### GitHub Actions と OIDC
 
@@ -90,9 +91,19 @@ flowchart LR
 
 対象環境（例: dev）で次を実行する。
 
+**Makefile 利用**（リポジトリルートで、init と ACM 証明書は自動で実行される）:
+
+```bash
+make plan ENV=dev
+make apply ENV=dev
+```
+
+**手動実行**（`envs/dev` で terraform を直接使う場合。カスタムドメイン使用時は初回 plan 前に ACM 証明書を先に apply すること）:
+
 ```bash
 cd envs/dev
 terraform init
+terraform apply -target=module.acm[0].aws_acm_certificate.main -auto-approve  # カスタムドメイン使用時のみ
 terraform plan
 terraform apply
 ```

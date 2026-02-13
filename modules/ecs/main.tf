@@ -127,7 +127,7 @@ resource "aws_iam_role_policy" "task_s3" {
 }
 
 resource "aws_iam_role_policy" "task_ses" {
-  count = var.attach_ses_policy ? 1 : 0
+  count = var.attach_ses_policy && length(var.ses_identity_arns) > 0 ? 1 : 0
 
   name = "ses-send"
   role = aws_iam_role.task.id

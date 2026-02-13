@@ -2,11 +2,15 @@
 
 ALB および CloudFront 用 TLS 証明書。DNS 検証。
 
+## plan/apply 時の ACM 証明書
+
+検証用 Route53 レコードの `for_each` は証明書の `domain_validation_options` に依存するため、**証明書がまだ無い状態では plan がエラー**になる。`make plan` / `make apply` には `apply-acm-cert`（証明書のみ先に apply）が統合されているため、**初回から `make plan` / `make apply` だけでよい**。内部で証明書を先に作成してから plan/apply が実行される。
+
 ## 既存の Route53 検証レコードがある場合
 
 証明書の DNS 検証用 CNAME がすでに Route53 に存在する場合は、**参照のみ**にする（Terraform でリソースを作らないため、`terraform destroy` してもそのレコードは削除されない）。
 
-呼び出し元で `existing_validation_record_names` に既存レコードの名前（FQDN）を渡す。**import や state mv は不要**。`make init` → `make plan` → `make apply` だけでよい。
+呼び出し元で `existing_validation_record_names` に既存レコードの名前（FQDN）を渡す。**import や state mv は不要**。
 
 ```hcl
 module "acm" {
