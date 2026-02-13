@@ -18,8 +18,8 @@ tags = {
   CostCenter  = "dev"
 }
 
-# SES: 送信元メールアドレスを指定すると SES モジュールが作成され、ECS タスクに送信権限が付与される。
-ses_sender_email = "dev-noreply@example.com"
+# 検証済みドメインを指定（送信元ドメイン）
+ses_domain       = "janscore.com"
 
 # カスタムドメイン（両方指定時のみ有効）。空の場合は xxx.cloudfront.net のまま。
 base_domain     = "skwondocs.com"
