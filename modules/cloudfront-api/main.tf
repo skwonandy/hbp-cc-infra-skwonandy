@@ -9,10 +9,33 @@ data "aws_cloudfront_cache_policy" "caching_disabled" {
   name = "Managed-CachingDisabled"
 }
 
-# CORS のためブラウザの Origin / プリフライト用ヘッダーをオリジン（ALB）に転送する（ID でマネージドポリシーを参照）
-# CORS-CustomOrigin: Origin のみ。プリフライト対応のため CORS-S3Origin（Origin + Access-Control-Request-*）を使用
-data "aws_cloudfront_origin_request_policy" "cors_custom" {
-  id = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf" # Managed CORS-S3Origin（カスタムオリジンでも利用可）
+# CORS + 認証ヘッダーをオリジン（ALB）に転送するカスタムポリシー
+# CORS-S3Origin は x-authorization / x-admin-authorization を転送しないため 401 になる。
+# カスタムポリシーで CORS 用ヘッダー + 認証ヘッダーを明示的に転送する。
+resource "aws_cloudfront_origin_request_policy" "api_cors_auth" {
+  name    = "${local.name_prefix}-api-cors-auth"
+  comment = "CORS + x-authorization, x-admin-authorization for API"
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = [
+        "Origin",
+        "Access-Control-Request-Headers",
+        "Access-Control-Request-Method",
+        "x-authorization",
+        "x-admin-authorization"
+      ]
+    }
+  }
+
+  cookies_config {
+    cookie_behavior = "none"
+  }
+
+  query_strings_config {
+    query_string_behavior = "none"
+  }
 }
 
 resource "aws_cloudfront_distribution" "api" {
@@ -39,7 +62,7 @@ resource "aws_cloudfront_distribution" "api" {
     cached_methods           = ["GET", "HEAD"]
     target_origin_id         = local.origin_id
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.cors_custom.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.api_cors_auth.id
     viewer_protocol_policy   = "redirect-to-https"
     compress                 = true
   }
