@@ -4,6 +4,7 @@ hbp-cc アプリケーションの AWS インフラを Terraform で管理する
 
 ## リポジトリ構成
 
+- **bootstrap/** — Terraform リモートステート用の S3 バケット・DynamoDB を一度だけ作成する。初回構築前に 1 回実行する（[bootstrap/README.md](bootstrap/README.md) 参照）。
 - **envs/** — 環境ごとのルートモジュール
   - `envs/dev/`, `envs/stg/`, `envs/prod/` で `main.tf`・`variables.tf`・`terraform.tfvars` を配置
 - **modules/** — 再利用モジュール（vpc, rds, elasticache, s3, cicd, alb, ecs, cloudfront, ses, terraform-runner-policy, acm, route53, batch, sqs, monitoring など）
@@ -12,22 +13,20 @@ hbp-cc アプリケーションの AWS インフラを Terraform で管理する
 
 ## 前提
 
-- **Terraform 1.14.4**（`required_version = "= 1.14.4"`）
+- **Terraform 1.x.x**（`required_version = "= 1.14.4"`）
 - **AWS provider** `~> 5.0`
 - AWS CLI 設定済み（または環境変数 `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`）
+
+### Terraform ステート（S3）
+
+各環境（dev / stg / prod）のステートは **S3 バックエンド** に保存する。バケット `hbp-cc-terraform-state` と DynamoDB テーブル `terraform-locks` でロックをかける。
+
+**初回のみ**: このリポジトリで初めて Terraform を実行する前に、**ブートストラップ** を 1 回だけ行う。`bootstrap/` ディレクトリで `terraform init` → `terraform apply` を実行し、上記 S3 バケットと DynamoDB テーブルを作成する。手順は [bootstrap/README.md](bootstrap/README.md) を参照。完了後、`envs/<env>` で通常の plan / apply を実行する。
 
 ### Terraform の実行
 
 **plan / apply の前に**、対象環境の RDS マスターパスワードを SSM Parameter Store に登録しておくこと（未登録だと `data "aws_ssm_parameter" "rds_password"` でエラーになる）。手順は後述の [RDS マスターパスワード（SSM のみ）](#rds-マスターパスワードssm-のみ) を参照。
 
-対象環境のディレクトリで初期化・plan・apply を実行する。**リポジトリルートから Makefile を使う**こともできる。
-
-```bash
-cd envs/dev
-terraform init
-terraform plan
-terraform apply
-```
 
 **Makefile 利用時**（リポジトリルートで）:
 
@@ -84,8 +83,21 @@ flowchart LR
 ### 前提条件
 
 - Terraform 1.14.4、AWS CLI 設定済み（上記「前提」参照）
+- **ブートストラップ済み**（初回のみ [bootstrap/README.md](bootstrap/README.md) の手順で S3 バケット・DynamoDB を作成済み）
 - 対象環境の RDS マスターパスワードを SSM に登録済み（[RDS マスターパスワード（SSM のみ）](#rds-マスターパスワードssm-のみ) 参照）
 - （任意）Terraform 実行用ロールを assume する場合は [assume の手順](#terraform-実行用ロール案-a-assume-運用) 参照
+
+### Step 0: ブートストラップ（初回のみ）
+
+まだ S3 バケット `hbp-cc-terraform-state` と DynamoDB テーブル `terraform-locks` を作成していない場合のみ実行する。
+
+```bash
+cd bootstrap
+terraform init
+terraform plan
+terraform apply
+cd ..
+```
 
 ### Step 1: インフラの構築（Terraform）
 

@@ -19,6 +19,38 @@ data "aws_iam_policy_document" "runner_core" {
     resources = ["*"]
   }
 
+  # Terraform リモートステート用 S3 バケット（全環境で共通の 1 バケットを参照）
+  statement {
+    sid    = "TerraformStateS3"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject"
+    ]
+    resources = [
+      "arn:aws:s3:::hbp-cc-terraform-state",
+      "arn:aws:s3:::hbp-cc-terraform-state/*"
+    ]
+  }
+
+  # Terraform ステートロック用 DynamoDB テーブル
+  statement {
+    sid    = "TerraformStateDynamoDB"
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:ConditionCheckItem",
+      "dynamodb:BatchGetItem",
+      "dynamodb:BatchWriteItem",
+      "dynamodb:DescribeTable"
+    ]
+    resources = ["arn:aws:dynamodb:${var.aws_region}:${var.account_id}:table/terraform-locks"]
+  }
+
   # SSM
   statement {
     sid    = "SSM"
