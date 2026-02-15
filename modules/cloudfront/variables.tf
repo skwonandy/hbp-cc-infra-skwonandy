@@ -38,3 +38,9 @@ variable "acm_certificate_arn" {
   default     = ""
   description = "ACM 証明書 ARN（us-east-1）。aliases を使う場合は必須"
 }
+
+variable "alb_dns_name" {
+  type        = string
+  default     = ""
+  description = "ALB DNS name for /api/* origin. Empty = frontend only (no API behavior)."
+}

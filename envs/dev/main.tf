@@ -194,6 +194,7 @@ module "ecs" {
   tags                   = var.tags
 }
 
+# 同一ドメイン: フロントはルート、API は /api/* で CloudFront が ALB に転送
 module "cloudfront" {
   source = "../../modules/cloudfront"
 
@@ -202,26 +203,16 @@ module "cloudfront" {
   frontend_bucket_id                  = module.s3.frontend_bucket_id
   frontend_bucket_arn                 = module.s3.frontend_bucket_arn
   frontend_bucket_regional_domain_name = module.s3.frontend_bucket_regional_domain_name
+  alb_dns_name                        = module.alb.alb_dns_name
   tags                                = var.tags
   aliases                             = var.base_domain != "" ? ["app-${var.env}.${var.base_domain}"] : []
   acm_certificate_arn                 = var.base_domain != "" && var.route53_zone_id != "" ? module.acm[0].certificate_arn : ""
 }
 
-module "cloudfront_api" {
-  source = "../../modules/cloudfront-api"
-
-  env                   = var.env
-  project_name          = var.project_name
-  alb_dns_name          = module.alb.alb_dns_name
-  tags                  = var.tags
-  aliases               = var.base_domain != "" ? ["api-${var.env}.${var.base_domain}"] : []
-  acm_certificate_arn   = var.base_domain != "" && var.route53_zone_id != "" ? module.acm[0].certificate_arn : ""
-}
-
-# カスタムドメイン時は FQDN、未設定時は CloudFront デフォルト URL（SSM・ECS で使用）
+# 同一ドメイン: フロント・API とも app-<env>.<base_domain>（API は /api パス）
 locals {
   frontend_url = var.base_domain != "" ? "https://app-${var.env}.${var.base_domain}" : module.cloudfront.cloudfront_url
-  api_base_url = var.base_domain != "" ? "https://api-${var.env}.${var.base_domain}" : module.cloudfront_api.cloudfront_url
+  api_base_url = local.frontend_url
 }
 
 # Route53: CloudFront への A/AAAA エイリアス（カスタムドメイン時のみ）
@@ -255,32 +246,6 @@ resource "aws_route53_record" "frontend_aaaa" {
     evaluate_target_health = false
   }
 }
-resource "aws_route53_record" "api_a" {
-  count = var.route53_zone_id != "" && var.base_domain != "" ? 1 : 0
-
-  zone_id = module.route53[0].zone_id
-  name    = "api-${var.env}"
-  type    = "A"
-
-  alias {
-    name                   = module.cloudfront_api.cloudfront_domain_name
-    zone_id                = local.cloudfront_hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-resource "aws_route53_record" "api_aaaa" {
-  count = var.route53_zone_id != "" && var.base_domain != "" ? 1 : 0
-
-  zone_id = module.route53[0].zone_id
-  name    = "api-${var.env}"
-  type    = "AAAA"
-
-  alias {
-    name                   = module.cloudfront_api.cloudfront_domain_name
-    zone_id                = local.cloudfront_hosted_zone_id
-    evaluate_target_health = false
-  }
-}
 
 # SES: domain または ses_sender_email のいずれかを指定した場合のみ作成
 module "ses" {
@@ -294,10 +259,10 @@ module "ses" {
   tags         = var.tags
 }
 
-# フロントエンドビルド時に API のベース URL を参照するため（GitHub Actions が SSM から取得）。カスタムドメイン時は api-<env>.<base_domain>。
+# フロントエンドビルド時に API のベース URL を参照（同一ドメインの /api）
 resource "aws_ssm_parameter" "api_base_url" {
   name        = "/hbp-cc/${var.env}/api-base-url"
-  description = "API base URL for frontend build (HTTPS via API CloudFront)"
+  description = "API base URL for frontend build (same origin, path /api)"
   type        = "String"
   value       = "${local.api_base_url}/api"
   overwrite   = true

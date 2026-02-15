@@ -56,12 +56,12 @@ output "github_actions_deploy_role_arn" {
 }
 
 output "api_url" {
-  description = "API endpoint (ALB)"
+  description = "API endpoint (ALB 直、内部用). 公開 API は frontend_url の同一ドメイン /api"
   value       = "http://${module.alb.alb_dns_name}"
 }
 
 output "frontend_url" {
-  description = "Frontend URL (CloudFront またはカスタムドメイン)"
+  description = "フロント・API 同一ドメイン（API は /api パス）"
   value       = local.frontend_url
 }
 

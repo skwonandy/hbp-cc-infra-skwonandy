@@ -120,7 +120,7 @@ terraform plan
 terraform apply
 ```
 
-**作成される主なリソース**: VPC, RDS, ElastiCache, S3（アプリ用・フロント用）, ECR（API 用）, ALB, ECS クラスタ・タスク定義・サービス（Rolling デプロイ）, CloudFront（フロント用・API 用 HTTPS 配信）, SSM パラメータ（`/hbp-cc/<env>/api-base-url` は HTTPS・`/hbp-cc/<env>/service-url`）, GitHub Actions 用 IAM ロール（OIDC）。
+**作成される主なリソース**: VPC, RDS, ElastiCache, S3（アプリ用・フロント用）, ECR（API 用）, ALB, ECS クラスタ・タスク定義・サービス（Rolling デプロイ）, CloudFront（同一ドメイン: フロント＋`/api` を 1 本で HTTPS 配信）, SSM パラメータ（`/hbp-cc/<env>/api-base-url` は同一ドメインの `https://app-<env>.<domain>/api`・`/hbp-cc/<env>/service-url`）, GitHub Actions 用 IAM ロール（OIDC）。
 
 **重要**: apply 後にデプロイ用ロール ARN を取得し、Step 2 で GitHub に登録する。
 
@@ -172,8 +172,8 @@ make seed
 
 ### Step 5: 動作確認
 
-- **API**: `terraform output api_url` で表示される ALB の URL（例: `http://.../api`）にヘルスチェックやログイン等でアクセスする。
-- **フロント**: `terraform output frontend_url` で表示される CloudFront URL にブラウザでアクセスする。
+- **フロント・API 同一ドメイン**: `terraform output frontend_url` がアプリのベース URL。フロントはルート、API は `/api`（例: `https://app-dev.example.com/` と `https://app-dev.example.com/api`）。
+- ブラウザで frontend_url にアクセスし、API は同一オリジンで `/api` に発信される。
 - 問題がある場合は ECS のタスク状態や CloudWatch Logs（`/ecs/hbp-cc-<env>-api`）を確認する。
 
 ### 補足

@@ -1,7 +1,44 @@
-# CloudFront: フロント用（S3 オリジン、OAC）。デフォルトドメインで配信。
+# CloudFront: フロント用（S3 オリジン、OAC）。alb_dns_name 指定時は /api/* を ALB へ転送（同一ドメイン）。
 
 locals {
-  name_prefix = "${var.project_name}-${var.env}"
+  name_prefix   = "${var.project_name}-${var.env}"
+  api_origin_id = "api-alb"
+  has_api       = var.alb_dns_name != ""
+}
+
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  count = local.has_api ? 1 : 0
+
+  name = "Managed-CachingDisabled"
+}
+
+# CORS + 認証ヘッダーを ALB に転送（/api/* 用）
+resource "aws_cloudfront_origin_request_policy" "api_cors_auth" {
+  count = local.has_api ? 1 : 0
+
+  name    = "${local.name_prefix}-api-cors-auth"
+  comment = "CORS + x-authorization, x-admin-authorization for API"
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = [
+        "Origin",
+        "Access-Control-Request-Headers",
+        "Access-Control-Request-Method",
+        "x-authorization",
+        "x-admin-authorization"
+      ]
+    }
+  }
+
+  cookies_config {
+    cookie_behavior = "none"
+  }
+
+  query_strings_config {
+    query_string_behavior = "none"
+  }
 }
 
 # Origin Access Control（S3 は非公開のまま CloudFront のみアクセス許可）
@@ -11,6 +48,29 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
+}
+
+# SPA ルーティング: 拡張子なしのパスを /index.html にリライト（viewer-request）。
+# custom_error_response は Distribution 全体に適用され /api の 404/403 も上書きしてしまうため使わない。
+resource "aws_cloudfront_function" "spa_rewrite" {
+  name    = "${local.name_prefix}-spa-rewrite"
+  runtime = "cloudfront-js-2.0"
+  comment = "SPA: rewrite non-file paths to /index.html"
+  publish = true
+
+  code = <<-JS
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+      // 拡張子があるパス（静的ファイル）はそのまま通す
+      if (uri.includes('.')) {
+        return request;
+      }
+      // 拡張子なし（SPA ルート）は /index.html にリライト
+      request.uri = '/index.html';
+      return request;
+    }
+  JS
 }
 
 # S3 バケットポリシー: CloudFront 経由の GetObject のみ許可
@@ -58,6 +118,35 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
+  dynamic "origin" {
+    for_each = local.has_api ? [1] : []
+    content {
+      domain_name = var.alb_dns_name
+      origin_id   = local.api_origin_id
+
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "http-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+    }
+  }
+
+  dynamic "ordered_cache_behavior" {
+    for_each = local.has_api ? [1] : []
+    content {
+      path_pattern           = "/api/*"
+      allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+      cached_methods         = ["GET", "HEAD"]
+      target_origin_id        = local.api_origin_id
+      cache_policy_id        = data.aws_cloudfront_cache_policy.caching_disabled[0].id
+      origin_request_policy_id = aws_cloudfront_origin_request_policy.api_cors_auth[0].id
+      viewer_protocol_policy = "redirect-to-https"
+      compress               = true
+    }
+  }
+
   default_cache_behavior {
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
@@ -65,18 +154,11 @@ resource "aws_cloudfront_distribution" "frontend" {
     compress               = true
     viewer_protocol_policy = "redirect-to-https"
     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6" # Managed CachingOptimized (no query/cookie forward)
-  }
 
-  # SPA: 404/403 で index.html を返す
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_rewrite.arn
+    }
   }
 
   restrictions {
