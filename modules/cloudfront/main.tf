@@ -3,7 +3,8 @@
 locals {
   name_prefix   = "${var.project_name}-${var.env}"
   api_origin_id = "api-alb"
-  has_api       = var.alb_dns_name != ""
+  # count/for_each は plan 時に決まる値のみ使用（alb_dns_name は計算値のため enable_api_origin で判定）
+  has_api       = var.enable_api_origin
 }
 
 data "aws_cloudfront_cache_policy" "caching_disabled" {

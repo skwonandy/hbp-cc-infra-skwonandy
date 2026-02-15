@@ -204,6 +204,7 @@ module "cloudfront" {
   frontend_bucket_arn                 = module.s3.frontend_bucket_arn
   frontend_bucket_regional_domain_name = module.s3.frontend_bucket_regional_domain_name
   alb_dns_name                        = module.alb.alb_dns_name
+  enable_api_origin                   = true
   tags                                = var.tags
   aliases                             = var.base_domain != "" ? ["app-${var.env}.${var.base_domain}"] : []
   acm_certificate_arn                 = var.base_domain != "" && var.route53_zone_id != "" ? module.acm[0].certificate_arn : ""

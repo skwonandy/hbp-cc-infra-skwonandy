@@ -44,3 +44,10 @@ variable "alb_dns_name" {
   default     = ""
   description = "ALB DNS name for /api/* origin. Empty = frontend only (no API behavior)."
 }
+
+# count/for_each を plan 時に決めるため、計算値である alb_dns_name ではなくこちらで API オリジン有無を指定する
+variable "enable_api_origin" {
+  type        = bool
+  default     = true
+  description = "API オリジン（/api/*）を有効にするか。ALB がある環境では true。count の判定に使用するため plan 時に確定していること。"
+}

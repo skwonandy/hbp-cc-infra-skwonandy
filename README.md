@@ -34,13 +34,13 @@ hbp-cc アプリケーションの AWS インフラを Terraform で管理する
 
 ```bash
 make help                   # 利用可能なターゲット一覧
-make plan                   # terraform plan（init と ACM 証明書の apply を事前に実行）
-make apply                  # terraform apply（同上）
+make plan                   # terraform plan
+make apply                  # terraform apply（事前に apply-acm-cert を実行）
 make plan ENV=stg           # stg 環境で plan
 make output VAR=frontend_url  # 特定の output のみ取得
 ```
 
-`make plan` / `make apply` は内部で `init` と `apply-acm-cert`（ACM 証明書のみ先に適用）を自動実行するため、初回から `make plan` / `make apply` だけでよい。`make init` を単体で実行する必要はない。
+`make plan` は `init` のあと `terraform plan` のみ実行する（`-target` を使わないため警告が出ない）。`make apply` は `init` → `apply-acm-cert`（ACM 証明書のみ先に適用）→ `terraform apply` の順で実行する。カスタムドメイン使用時で初回 plan がエラーになる場合は、先に `make apply-acm-cert` を 1 回実行してから `make plan` する。
 
 **よく使うターゲット**:
 

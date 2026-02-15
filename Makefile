@@ -17,8 +17,8 @@ help:
 	@echo "--- 基本操作 ---"
 	@echo "  help            このヘルプを表示"
 	@echo "  init            terraform init ($(TF_DIR))"
-	@echo "  plan            terraform plan（事前に ACM 証明書を apply）"
-	@echo "  apply           terraform apply（事前に ACM 証明書を apply）"
+	@echo "  plan            terraform plan"
+	@echo "  apply           terraform apply（事前に apply-acm-cert を実行）"
 	@echo "  destroy         S3/ECR を空にしてから terraform destroy"
 	@echo "  validate        terraform validate"
 	@echo "  fmt             terraform fmt -recursive"
@@ -54,7 +54,8 @@ help:
 init:
 	terraform -chdir=$(TF_DIR) init
 
-plan: init apply-acm-cert
+# plan では -target を使わない（apply-acm-cert は apply 時のみ実行し、target 警告を出さない）
+plan: init
 	terraform -chdir=$(TF_DIR) plan
 
 apply: init apply-acm-cert
@@ -99,7 +100,7 @@ assume:
 # ターゲット指定
 # ==============================================================================
 
-# ACM 証明書を先に作成する。証明書が無い状態だと plan で for_each が不定になりエラーになるため、plan/apply の前に自動実行される。
+# ACM 証明書を先に作成する。証明書が無い状態だと apply で for_each が不定になるため、apply の直前に自動実行される。plan では実行しない（-target 警告を避ける）。
 apply-acm-cert: init
 	terraform -chdir=$(TF_DIR) apply -target=module.acm[0].aws_acm_certificate.main -auto-approve
 
