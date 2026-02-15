@@ -8,7 +8,8 @@ vpc_cidr     = "10.1.0.0/16"
 
 # GitHub Actions OIDC: デプロイ用 IAM ロールを作成。dev で OIDC プロバイダを 1 回だけ作成する想定
 github_org_repo      = "skwonandy/hbp-cc-skwonandy"
-create_oidc_provider = true
+# OIDC Provider は既存（他で管理）のため data source で参照のみ
+create_oidc_provider = false
 
 # RDS パスワードは SSM のみ（環境ごと /hbp-cc/<env>/rds-master-password に事前登録すること）
 

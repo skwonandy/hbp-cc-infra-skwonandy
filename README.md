@@ -165,6 +165,10 @@ dev などで開発用データ（組織・ユーザー・患者・管理者）�
 2. コンテナ内で以下を実行する。
 
 ```bash
+# ECSコンテナにログイン
+make ecs-exec
+
+# FastAPIのmakeを実行
 make seed
 ```
 
