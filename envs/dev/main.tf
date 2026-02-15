@@ -186,7 +186,7 @@ module "ecs" {
     { name = "HBP_ADMIN_JWT_KEY", value = var.hbp_admin_jwt_key },
     { name = "TOTP_ENCRYPTION_KEY", value = var.totp_encryption_key },
     { name = "HBP_JWT_ISSUER", value = var.hbp_jwt_issuer },
-  ], var.ses_existing_region != "" ? [{ name = "AWS_SES_REGION", value = var.ses_existing_region }] : [])
+  ], var.ses_existing_region != "" ? [{ name = "AWS_SES_REGION", value = var.ses_existing_region }] : [], var.ses_sender_from_email != "" ? [{ name = "EMAIL_FROM", value = var.ses_sender_from_email }] : [])
   task_cpu               = var.ecs_task_cpu
   task_memory            = var.ecs_task_memory
   desired_count          = var.ecs_desired_count

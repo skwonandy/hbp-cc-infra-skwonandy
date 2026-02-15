@@ -173,6 +173,13 @@ variable "ses_existing_region" {
   description = "既存 SES のリージョン（例: us-west-2）。ses_existing_domain 指定時は必須"
 }
 
+# 既存 SES 利用時の送信元アドレス（ECS の EMAIL_FROM）。検証済み identity であること
+variable "ses_sender_from_email" {
+  type        = string
+  default     = ""
+  description = "メール送信元（例: noreply@example.com または \"表示名 <noreply@example.com>\"）。既存 SES の検証済みドメインのアドレスを指定"
+}
+
 # Terraform 実行用ロールを assume してよい IAM ユーザーまたはロールの ARN のリスト。空の場合はポリシーのみ作成しロールは作らない。
 variable "terraform_runner_allow_assume_principal_arns" {
   description = "IAM user or role ARNs allowed to assume the Terraform runner role. Empty = policy only, no role."

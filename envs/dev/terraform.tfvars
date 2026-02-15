@@ -25,6 +25,8 @@ ses_domain       = ""
 # 既存 SES（Terraform 管理外・参照のみ）
 ses_existing_domain = "janscore.com"
 ses_existing_region = "us-west-2"
+# 送信元アドレス（検証済み identity。ECS の EMAIL_FROM）
+ses_sender_from_email = "Hello Baby Program <noreply@janscore.com>"
 
 # カスタムドメイン（両方指定時のみ有効）。空の場合は xxx.cloudfront.net のまま。
 # base_domain     = "xxxxx.com"
