@@ -19,7 +19,7 @@ tags = {
 }
 
 # 検証済みドメインを指定（送信元ドメイン）。空の場合は SES モジュールは作成されない。
-# janscore.com は destroy で削除したくないため Terraform 管理外とする（state rm 済み想定）。
+# Terraform 管理外とする（state rm 済み想定）。
 ses_domain       = ""
 
 # 既存 SES（Terraform 管理外・参照のみ）

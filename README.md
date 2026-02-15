@@ -31,14 +31,36 @@ hbp-cc アプリケーションの AWS インフラを Terraform で管理する
 **Makefile 利用時**（リポジトリルートで）:
 
 ```bash
-make help          # 利用可能なターゲット一覧
-make plan          # terraform plan（init と ACM 証明書の apply を事前に実行）
-make apply         # terraform apply（同様に init と ACM 証明書を事前に実行）
-make plan ENV=stg  # stg 環境で plan
-make output VAR=github_actions_deploy_role_arn  # 特定の output のみ取得
+make help                   # 利用可能なターゲット一覧
+make plan                   # terraform plan（init と ACM 証明書の apply を事前に実行）
+make apply                  # terraform apply（同上）
+make plan ENV=stg           # stg 環境で plan
+make output VAR=frontend_url  # 特定の output のみ取得
 ```
 
 `make plan` / `make apply` は内部で `init` と `apply-acm-cert`（ACM 証明書のみ先に適用）を自動実行するため、初回から `make plan` / `make apply` だけでよい。`make init` を単体で実行する必要はない。
+
+**よく使うターゲット**:
+
+```bash
+# --- セットアップ ---
+make bootstrap              # リモートステート用 S3/DynamoDB を作成（初回のみ）
+make assume                 # assume コマンドを表示（eval で実行）
+
+# --- ターゲット指定 ---
+make plan-target TARGET=module.ecs          # 特定モジュールのみ plan
+make apply-target TARGET=module.ses[0]      # 特定モジュールのみ apply
+
+# --- 運用 ---
+make ecs-exec               # SSM で ECS タスクにログイン
+make ecs-logs               # CloudWatch Logs を tail（直近 10 分）
+
+# --- 確認 ---
+make urls                   # フロントエンド・API の URL を表示
+make deploy-role            # GitHub Actions 用デプロイロール ARN を表示
+make cf-invalidate          # CloudFront キャッシュを全無効化
+make ses-status             # 既存 SES ドメインの検証ステータスを表示
+```
 
 ### GitHub Actions と OIDC
 
@@ -91,6 +113,14 @@ flowchart LR
 
 まだ S3 バケット `hbp-cc-terraform-state` と DynamoDB テーブル `terraform-locks` を作成していない場合のみ実行する。
 
+**Makefile 利用**（リポジトリルートで）:
+
+```bash
+make bootstrap
+```
+
+**手動実行**:
+
 ```bash
 cd bootstrap
 terraform init
@@ -125,6 +155,8 @@ terraform apply
 **重要**: apply 後にデプロイ用ロール ARN を取得し、Step 2 で GitHub に登録する。
 
 ```bash
+make deploy-role            # Makefile 利用
+# または
 cd envs/dev && terraform output github_actions_deploy_role_arn
 ```
 
@@ -172,9 +204,9 @@ make seed
 
 ### Step 5: 動作確認
 
-- **フロント・API 同一ドメイン**: `terraform output frontend_url` がアプリのベース URL。フロントはルート、API は `/api`（例: `https://app-dev.example.com/` と `https://app-dev.example.com/api`）。
+- **URL 確認**: `make urls` でフロントエンド・API の URL を表示できる。フロントはルート、API は `/api`（例: `https://app-dev.example.com/` と `https://app-dev.example.com/api`）。
 - ブラウザで frontend_url にアクセスし、API は同一オリジンで `/api` に発信される。
-- 問題がある場合は ECS のタスク状態や CloudWatch Logs（`/ecs/hbp-cc-<env>-api`）を確認する。
+- 問題がある場合は `make ecs-logs` で CloudWatch Logs を tail するか、ECS のタスク状態を確認する。
 
 ### 補足
 
@@ -218,12 +250,16 @@ ARN 制限付きのポリシーと **Terraform 実行用ロール** は [modules
 **assume の手順**（リポジトリルートで実行）:
 
 ```bash
+# assume コマンドを表示（コピペ用）
+make assume
+# → eval $(./scripts/assume-terraform-role.sh dev)
+
 # dev 用ロールを assume し、現在のシェルに環境変数をセット
 eval $(./scripts/assume-terraform-role.sh dev)
-cd envs/dev && terraform plan
+make plan
 ```
 
-stg / prod の場合は `dev` を `stg` / `prod` に置き換えてください。スクリプトには AWS CLI と jq（または Python 3）が必要です。ロールが未作成の場合はスクリプトがエラーで終了します。
+stg / prod の場合は `make assume ENV=stg` や `dev` を `stg` / `prod` に置き換えてください。スクリプトには AWS CLI と jq（または Python 3）が必要です。ロールが未作成の場合はスクリプトがエラーで終了します。
 
 **Terraform destroy 時の S3/ECR エラー対策**
 
@@ -286,6 +322,9 @@ ECS サービスでは `enable_execute_command = true` により **ECS Exec**（
 eval $(./scripts/assume-terraform-role.sh dev)
 make ecs-exec
 # 別環境: make ecs-exec ENV=stg
+
+# ログを確認したい場合（Ctrl+C で停止）
+make ecs-logs
 ```
 
 手動で実行する場合:
@@ -333,21 +372,53 @@ aws ssm put-parameter --name /hbp-cc/dev/rds-master-password --type SecureString
 - **DB パスワードの渡し方**: ECS タスクには `db_password_secret_arn`（Secrets Manager の ARN）を渡し、`db_password_plain` は使わない。パスワードを Secrets Manager に登録し、その ARN を ECS モジュールの `db_password_secret_arn` に指定する。
 - **JWT 等の秘密鍵**: `api_extra_environment` で平文を渡さず、SSM Parameter Store（SecureString）または Secrets Manager に格納し、ECS モジュールの `api_extra_secrets`（`{ name, valueFrom }` のリスト）と `api_extra_secret_arns`（タスク実行ロールに付与する ARN 一覧）で渡す。Terraform state に平文が残らない。
 
-### SES 送信元メールアドレス
+### SES（メール送信）
 
-SES の送信元として使うメールアドレスは **環境ごとの tfvars** で指定します。
+SES は **既存リソースを参照する方式**（Terraform 管理外）と、**Terraform で新規作成する方式**の 2 通りをサポートする。
 
-- **dev**: [envs/dev/terraform.tfvars](envs/dev/terraform.tfvars) の `ses_sender_email`（例: `dev-noreply@example.com`）
-- **変数**: 各環境の `variables.tf` の `ses_sender_email` / `ses_domain`。どちらかが空でないときのみ SES モジュールが有効になる。
+#### 方式 1: 既存 SES の参照（推奨・現在の dev 設定）
 
-dev は SES サンドボックスのため、送信できるのは **検証済みの送信元アドレス** のみ。アドレスを変えた場合は、AWS コンソールの SES でそのアドレスを検証すること。
+AWS コンソールや別手段で作成済みの SES ドメイン identity を **Terraform で作成・更新・削除せず参照のみ** する。Terraform state に SES リソースが含まれないため、`terraform destroy` で SES が消える心配がない。
 
-**SES だけデプロイする場合**（他リソースを立てずに SES のドメイン／メール検証だけ先行して行うとき）:
+**設定方法**: 各環境の `terraform.tfvars` で以下を指定する。
+
+```hcl
+# 既存 SES（Terraform 管理外・参照のみ）
+ses_existing_domain = "xxxxx.com"   # 検証済みドメイン
+ses_existing_region = "us-west-2"      # SES のリージョン
+```
+
+- **変数**: `ses_existing_domain`（ドメイン名）と `ses_existing_region`（SES リージョン）
+- Terraform は ARN（`arn:aws:ses:<region>:<account_id>:identity/<domain>`）を locals で構築し、ECS タスクロールに `ses:SendEmail` / `ses:SendRawEmail` 権限を付与する
+- ECS タスクには環境変数 `AWS_SES_REGION` が自動設定される
+- `ses_domain` / `ses_sender_email` が空（SES モジュール無効）の状態で使用する
+
+**SES ステータスの確認**:
 
 ```bash
-cd envs/dev
-terraform plan -target=module.ses[0]
-terraform apply -target=module.ses[0]
+make ses-status              # 検証・DKIM・アカウント状態を表示
+make ses-status ENV=stg      # stg 環境の SES を確認
+```
+
+#### 方式 2: Terraform で SES を新規作成
+
+SES のドメイン identity やメールアドレス検証を Terraform で管理する場合。`ses_existing_domain` が空のときにフォールバックとして使われる。
+
+**設定方法**: 各環境の `terraform.tfvars` で以下のいずれかを指定する。
+
+```hcl
+ses_domain       = "example.com"            # ドメイン identity を作成
+ses_sender_email = "noreply@example.com"    # メールアドレス identity を作成
+```
+
+- **変数**: `ses_domain` / `ses_sender_email`。どちらかが空でないときのみ SES モジュール（`modules/ses/`）が有効になる
+- dev は SES サンドボックスのため、送信できるのは **検証済みの送信元アドレス** のみ
+
+**SES だけデプロイする場合**:
+
+```bash
+make apply-target TARGET=module.ses[0]
+# または手動: cd envs/dev && terraform apply -target=module.ses[0]
 ```
 
 前提として、`/hbp-cc/dev/rds-master-password` が SSM に登録済みであること（plan 時にデータソースが参照するため）。SES モジュールは他モジュールに依存しないため、この target だけで作成できる。

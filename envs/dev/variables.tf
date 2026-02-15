@@ -165,7 +165,7 @@ variable "ses_sender_email" {
 variable "ses_existing_domain" {
   type        = string
   default     = ""
-  description = "既存 SES ドメイン名（例: janscore.com）。Terraform で作成せず参照のみ"
+  description = "既存 SES ドメイン名（例: xxxxx.com）。Terraform で作成せず参照のみ"
 }
 variable "ses_existing_region" {
   type        = string
