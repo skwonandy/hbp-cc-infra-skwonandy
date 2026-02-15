@@ -21,6 +21,8 @@ hbp-cc アプリケーションの AWS インフラを Terraform で管理する
 
 各環境（dev / stg / prod）のステートは **S3 バックエンド** に保存する。バケット `hbp-cc-terraform-state` と DynamoDB テーブル `terraform-locks` でロックをかける。
 
+**このプロダクト（hbp-cc）用**: bootstrap で作成する S3 バケット名・ステートキー（`hbp-cc-infra/<env>/terraform.tfstate`）は **このリポジトリ専用**。他プロダクトはそれぞれ自前のバケット／キーで同様の運用をする想定。DynamoDB テーブル `terraform-locks` は、LockID が「バケット名＋ステートキー」で決まるため、**同一テーブルを他プロダクトと共有しても問題ない**（プロダクトごとに別の LockID になり、ロックが衝突しない）。
+
 **初回のみ**: このリポジトリで初めて Terraform を実行する前に、**ブートストラップ** を 1 回だけ行う。`bootstrap/` ディレクトリで `terraform init` → `terraform apply` を実行し、上記 S3 バケットと DynamoDB テーブルを作成する。手順は [bootstrap/README.md](bootstrap/README.md) を参照。完了後、`envs/<env>` で通常の plan / apply を実行する。
 
 ### Terraform の実行
@@ -111,22 +113,12 @@ flowchart LR
 
 ### Step 0: ブートストラップ（初回のみ）
 
-まだ S3 バケット `hbp-cc-terraform-state` と DynamoDB テーブル `terraform-locks` を作成していない場合のみ実行する。
+**このプロダクト用**のリソースを作る。まだ S3 バケット `hbp-cc-terraform-state` と DynamoDB テーブル `terraform-locks` をこのリポジトリ用に用意していない場合のみ実行する（他プロダクトと DynamoDB を共有している場合は、バケットが無いときだけ作成すればよい）。
 
 **Makefile 利用**（リポジトリルートで）:
 
 ```bash
 make bootstrap
-```
-
-**手動実行**:
-
-```bash
-cd bootstrap
-terraform init
-terraform plan
-terraform apply
-cd ..
 ```
 
 ### Step 1: インフラの構築（Terraform）
@@ -136,18 +128,8 @@ cd ..
 **Makefile 利用**（リポジトリルートで、init と ACM 証明書は自動で実行される）:
 
 ```bash
-make plan ENV=dev
-make apply ENV=dev
-```
-
-**手動実行**（`envs/dev` で terraform を直接使う場合。カスタムドメイン使用時は初回 plan 前に ACM 証明書を先に apply すること）:
-
-```bash
-cd envs/dev
-terraform init
-terraform apply -target=module.acm[0].aws_acm_certificate.main -auto-approve  # カスタムドメイン使用時のみ
-terraform plan
-terraform apply
+make plan
+make apply
 ```
 
 **作成される主なリソース**: VPC, RDS, ElastiCache, S3（アプリ用・フロント用）, ECR（API 用）, ALB, ECS クラスタ・タスク定義・サービス（Rolling デプロイ）, CloudFront（同一ドメイン: フロント＋`/api` を 1 本で HTTPS 配信）, SSM パラメータ（`/hbp-cc/<env>/api-base-url` は同一ドメインの `https://app-<env>.<domain>/api`・`/hbp-cc/<env>/service-url`）, GitHub Actions 用 IAM ロール（OIDC）。
