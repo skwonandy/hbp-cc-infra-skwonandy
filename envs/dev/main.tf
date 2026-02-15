@@ -177,8 +177,8 @@ module "ecs" {
   app_env                    = "dev"
   sentry_dsn                 = ""
   attach_ses_policy          = true
-  ses_identity_arns          = try(module.ses[0].identity_arns, [])
-  api_extra_environment     = [
+  ses_identity_arns          = local.ses_identity_arns
+  api_extra_environment     = concat([
     { name = "HBP_SESSION_JWT_KEY", value = var.hbp_session_jwt_key },
     { name = "HBP_USER_INVITATION_JWT_KEY", value = var.hbp_user_invitation_jwt_key },
     { name = "HBP_JWT_EXT_KEY", value = var.hbp_jwt_ext_key },
@@ -186,7 +186,7 @@ module "ecs" {
     { name = "HBP_ADMIN_JWT_KEY", value = var.hbp_admin_jwt_key },
     { name = "TOTP_ENCRYPTION_KEY", value = var.totp_encryption_key },
     { name = "HBP_JWT_ISSUER", value = var.hbp_jwt_issuer },
-  ]
+  ], var.ses_existing_region != "" ? [{ name = "AWS_SES_REGION", value = var.ses_existing_region }] : [])
   task_cpu               = var.ecs_task_cpu
   task_memory            = var.ecs_task_memory
   desired_count          = var.ecs_desired_count
@@ -257,6 +257,14 @@ module "ses" {
   domain       = var.ses_domain
   sender_email = var.ses_sender_email
   tags         = var.tags
+}
+
+# 既存 SES 参照（Terraform 管理外）。ARN を直接構築し IAM ポリシーに渡す。
+locals {
+  ses_existing_identity_arn = var.ses_existing_domain != "" ? "arn:aws:ses:${var.ses_existing_region}:${data.aws_caller_identity.current.account_id}:identity/${var.ses_existing_domain}" : ""
+
+  # 既存 SES 参照 or モジュール作成のいずれかから ARN を取得
+  ses_identity_arns = var.ses_existing_domain != "" ? [local.ses_existing_identity_arn] : try(module.ses[0].identity_arns, [])
 }
 
 # フロントエンドビルド時に API のベース URL を参照（同一ドメインの /api）

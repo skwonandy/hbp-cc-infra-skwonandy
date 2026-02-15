@@ -161,6 +161,18 @@ variable "ses_sender_email" {
   description = "SES で検証する送信元メールアドレス（dev/sandbox ではこの 1 件を検証して送信に使用）"
 }
 
+# 既存 SES 参照（Terraform 管理外・ARN を直接構築して IAM ポリシーに渡す）
+variable "ses_existing_domain" {
+  type        = string
+  default     = ""
+  description = "既存 SES ドメイン名（例: janscore.com）。Terraform で作成せず参照のみ"
+}
+variable "ses_existing_region" {
+  type        = string
+  default     = ""
+  description = "既存 SES のリージョン（例: us-west-2）。ses_existing_domain 指定時は必須"
+}
+
 # Terraform 実行用ロールを assume してよい IAM ユーザーまたはロールの ARN のリスト。空の場合はポリシーのみ作成しロールは作らない。
 variable "terraform_runner_allow_assume_principal_arns" {
   description = "IAM user or role ARNs allowed to assume the Terraform runner role. Empty = policy only, no role."

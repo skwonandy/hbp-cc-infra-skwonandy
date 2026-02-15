@@ -22,6 +22,10 @@ tags = {
 # janscore.com は destroy で削除したくないため Terraform 管理外とする（state rm 済み想定）。
 ses_domain       = ""
 
+# 既存 SES（Terraform 管理外・参照のみ）
+ses_existing_domain = "janscore.com"
+ses_existing_region = "us-west-2"
+
 # カスタムドメイン（両方指定時のみ有効）。空の場合は xxx.cloudfront.net のまま。
 # base_domain     = "xxxxx.com"
 # route53_zone_id = "Z3QK1GRO4RD4HY"
