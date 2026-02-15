@@ -23,7 +23,6 @@ tags = {
 ses_domain       = ""
 
 # カスタムドメイン（両方指定時のみ有効）。空の場合は xxx.cloudfront.net のまま。
-base_domain     = "skwondocs.com"
-route53_zone_id = "Z3QK1GRO4RD4HY"
-# Route53 に既にある ACM 検証用 CNAME
-acm_existing_validation_record_names = ["_8b20608dc98bbd341afe22a806aeb9e9.skwondocs.com."]
+# base_domain     = "xxxxx.com"
+# route53_zone_id = "Z3QK1GRO4RD4HY"
+# acm_existing_validation_record_names = ["_8b20608dc98bbd341afe22a806aeb9e9.xxxxx.com."]
